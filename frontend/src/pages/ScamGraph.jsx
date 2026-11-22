@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Network, Search, Filter, RotateCcw, AlertTriangle, Layers, Info } from 'lucide-react';
+import { Network, Search, Filter, RotateCcw, AlertTriangle, Layers, Info, ShieldAlert, Sparkles, ExternalLink } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export default function ScamGraph() {
   const containerRef = useRef(null);
@@ -7,8 +8,11 @@ export default function ScamGraph() {
   const [loading, setLoading] = useState(true);
   const [selectedNode, setSelectedNode] = useState(null);
   const [networkInstance, setNetworkInstance] = useState(null);
+  const [filterType, setFilterType] = useState('ALL'); // ALL, case, upi, phone, domain
+  const [visLoaded, setVisLoaded] = useState(false);
 
   useEffect(() => {
+    // 1. Fetch backend relationship graph
     fetch('/api/intel/graph')
       .then((res) => res.json())
       .then((data) => {
@@ -19,105 +23,187 @@ export default function ScamGraph() {
         console.error('Failed to load graph:', err);
         setLoading(false);
       });
+
+    // 2. Ensure Vis Network script is available
+    if (window.vis && window.vis.Network) {
+      setVisLoaded(true);
+    } else {
+      const existingScript = document.querySelector('script[src*="vis-network"]');
+      if (!existingScript) {
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js';
+        script.async = true;
+        script.onload = () => setVisLoaded(true);
+        document.body.appendChild(script);
+      } else {
+        existingScript.addEventListener('load', () => setVisLoaded(true));
+        // Poll for a short moment in case it was already loaded
+        const timer = setInterval(() => {
+          if (window.vis && window.vis.Network) {
+            setVisLoaded(true);
+            clearInterval(timer);
+          }
+        }, 150);
+        return () => clearInterval(timer);
+      }
+    }
   }, []);
 
   useEffect(() => {
-    if (!loading && containerRef.current && window.vis && graphData.nodes.length > 0) {
-      const visNodes = graphData.nodes.map((n) => {
-        let color = '#0284C7';
-        let shape = 'dot';
-        let size = 18;
+    if (!loading && containerRef.current && window.vis && graphData.nodes && graphData.nodes.length > 0) {
+      try {
+        const filteredNodes = graphData.nodes.filter((n) => {
+          if (filterType === 'ALL') return true;
+          return n.type === filterType;
+        });
 
-        if (n.type === 'case') {
-          color = n.risk === 'HIGH' ? '#EF4444' : n.risk === 'MEDIUM' ? '#F59E0B' : '#10B981';
-          size = 22;
-        } else if (n.type === 'upi') {
-          color = '#9333EA';
-          shape = 'diamond';
-          size = 18;
-        } else if (n.type === 'phone') {
-          color = '#059669';
-          shape = 'triangle';
-          size = 18;
-        } else if (n.type === 'domain') {
-          color = '#D97706';
-          shape = 'square';
-          size = 18;
-        }
+        const activeNodeIds = new Set(filteredNodes.map((n) => n.id));
 
-        return {
-          id: n.id,
-          label: n.label,
-          color: { background: color, border: '#FFFFFF', highlight: { background: '#00D4FF', border: '#FFFFFF' } },
-          font: { color: '#0F172A', size: 10, face: 'Helvetica' },
-          shape,
-          size,
-          raw: n
+        const filteredEdges = graphData.edges.filter(
+          (e) => activeNodeIds.has(e.from) && activeNodeIds.has(e.to)
+        );
+
+        const visNodes = filteredNodes.map((n) => {
+          let color = '#0284C7';
+          let shape = 'dot';
+          let size = 18;
+
+          if (n.type === 'case') {
+            color = n.risk === 'HIGH' ? '#EF4444' : n.risk === 'MEDIUM' ? '#F59E0B' : '#10B981';
+            size = 24;
+            shape = 'hexagon';
+          } else if (n.type === 'upi') {
+            color = '#9333EA';
+            shape = 'diamond';
+            size = 18;
+          } else if (n.type === 'phone') {
+            color = '#059669';
+            shape = 'triangle';
+            size = 18;
+          } else if (n.type === 'domain') {
+            color = '#D97706';
+            shape = 'square';
+            size = 18;
+          }
+
+          return {
+            id: n.id,
+            label: n.label,
+            color: {
+              background: color,
+              border: '#FFFFFF',
+              highlight: { background: '#00D4FF', border: '#FFFFFF' }
+            },
+            font: { color: '#0F172A', size: 11, face: 'Inter, system-ui, sans-serif', bold: true },
+            shape,
+            size,
+            borderWidth: 2,
+            shadow: true,
+            raw: n
+          };
+        });
+
+        const visEdges = filteredEdges.map((e) => ({
+          from: e.from,
+          to: e.to,
+          color: { color: '#94A3B8', highlight: '#00D4FF' },
+          width: 2,
+          smooth: { type: 'continuous' }
+        }));
+
+        const options = {
+          physics: {
+            stabilization: { iterations: 150 },
+            barnesHut: { gravitationalConstant: -3800, springLength: 100, springConstant: 0.04 }
+          },
+          interaction: { hover: true, tooltipDelay: 100 },
+          nodes: {
+            scaling: { min: 14, max: 32 }
+          }
         };
-      });
 
-      const visEdges = graphData.edges.map((e) => ({
-        from: e.from,
-        to: e.to,
-        color: { color: '#94A3B8', highlight: '#00D4FF' },
-        width: 1.5
-      }));
+        const network = new window.vis.Network(
+          containerRef.current,
+          {
+            nodes: new window.vis.DataSet(visNodes),
+            edges: new window.vis.DataSet(visEdges)
+          },
+          options
+        );
 
-      const options = {
-        physics: {
-          stabilization: true,
-          barnesHut: { gravitationalConstant: -3500, springLength: 90 }
-        },
-        interaction: { hover: true }
-      };
+        network.on('click', (params) => {
+          if (params.nodes.length > 0) {
+            const nodeId = params.nodes[0];
+            const nodeObj = filteredNodes.find((n) => n.id === nodeId);
+            if (nodeObj) {
+              // Find connected nodes
+              const connectedEdgeList = filteredEdges.filter((e) => e.from === nodeId || e.to === nodeId);
+              const connectedNodeIds = new Set(
+                connectedEdgeList.map((e) => (e.from === nodeId ? e.to : e.from))
+              );
+              const connectedItems = graphData.nodes.filter((n) => connectedNodeIds.has(n.id));
 
-      const network = new window.vis.Network(
-        containerRef.current,
-        { nodes: new window.vis.DataSet(visNodes), edges: new window.vis.DataSet(visEdges) },
-        options
-      );
+              setSelectedNode({
+                ...nodeObj,
+                connections: connectedItems
+              });
+            }
+          } else {
+            setSelectedNode(null);
+          }
+        });
 
-      network.on('click', (params) => {
-        if (params.nodes.length > 0) {
-          const clickedId = params.nodes[0];
-          const found = graphData.nodes.find((n) => n.id === clickedId);
-          setSelectedNode(found || null);
-        } else {
-          setSelectedNode(null);
-        }
-      });
+        setNetworkInstance(network);
 
-      setNetworkInstance(network);
+        return () => {
+          network.destroy();
+        };
+      } catch (err) {
+        console.error('Error initializing vis network:', err);
+      }
     }
-  }, [loading, graphData]);
+  }, [loading, visLoaded, graphData, filterType]);
 
-  const fitGraph = () => {
+  const handleReset = () => {
     if (networkInstance) {
-      networkInstance.fit({ animation: true });
+      networkInstance.fit({ animation: { duration: 600 } });
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Title */}
+    <div className="space-y-6 max-w-7xl mx-auto font-sans">
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center space-x-2 text-xs font-bold uppercase tracking-wider text-cyan-600">
             <Network className="w-4 h-4" />
-            <span>Module 5 • Cross-Case Correlation Hub</span>
+            <span>Cross-FIR Correlation & Syndicate Intelligence</span>
           </div>
-          <h1 className="text-2xl font-black text-slate-900 mt-1">
-            Syndicate Entity Relationship Graph
-          </h1>
+          <h1 className="text-2xl font-black text-slate-900 mt-1">Syndicate Entity Relationship Graph</h1>
           <p className="text-xs text-slate-500 mt-1">
-            Visualizes hidden links connecting distinct FIRs through shared phone numbers, UPI VPAs, and hosting domains.
+            Visualizes cross-case links connecting separate FIRs through shared phone numbers, mule UPI VPAs, and hosting infrastructure.
           </p>
         </div>
 
+        {/* Filter & Controls */}
         <div className="flex items-center space-x-2">
+          <div className="flex items-center bg-white border border-slate-200 p-1 rounded-xl shadow-xs text-xs font-semibold">
+            {['ALL', 'case', 'phone', 'upi', 'domain'].map((type) => (
+              <button
+                key={type}
+                onClick={() => setFilterType(type)}
+                className={`px-2.5 py-1 rounded-lg uppercase text-[11px] transition ${
+                  filterType === type ? 'bg-cyan-500 text-white font-bold' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {type === 'ALL' ? 'All' : type}
+              </button>
+            ))}
+          </div>
+
           <button
-            onClick={fitGraph}
-            className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs font-bold shadow-xs transition flex items-center space-x-1.5"
+            onClick={handleReset}
+            className="flex items-center space-x-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl shadow-xs transition"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Reset View</span>
@@ -125,109 +211,136 @@ export default function ScamGraph() {
         </div>
       </div>
 
-      {/* Main Canvas & Details Panel */}
+      {/* Main Canvas + Intelligence Panel */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Canvas */}
-        <div className="lg:col-span-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+        {/* Graph Canvas */}
+        <div className="lg:col-span-3 bg-white rounded-2xl border border-slate-200 shadow-xs p-4 flex flex-col relative min-h-[580px]">
           {/* Legend */}
-          <div className="flex flex-wrap items-center justify-between border-b border-slate-100 pb-3 text-xs">
-            <div className="flex items-center space-x-4">
-              <span className="flex items-center text-slate-700">
-                <span className="w-3 h-3 rounded-full bg-red-500 mr-1.5"></span> High-Risk FIR
-              </span>
-              <span className="flex items-center text-slate-700">
-                <span className="w-3 h-3 rounded-full bg-purple-600 mr-1.5"></span> UPI VPA
-              </span>
-              <span className="flex items-center text-slate-700">
-                <span className="w-3 h-3 rounded-full bg-emerald-600 mr-1.5"></span> Phone Number
-              </span>
-              <span className="flex items-center text-slate-700">
-                <span className="w-3 h-3 rounded-full bg-amber-500 mr-1.5"></span> Phishing Domain
-              </span>
-            </div>
-
-            <span className="text-[11px] text-slate-400">
-              {graphData.nodes.length} Nodes • {graphData.edges.length} Links Indexed
+          <div className="flex flex-wrap items-center gap-4 text-xs font-bold text-slate-600 pb-3 border-b border-slate-100">
+            <span className="flex items-center">
+              <span className="w-3 h-3 rounded-full bg-rose-500 mr-1.5"></span>
+              High-Risk FIR
+            </span>
+            <span className="flex items-center">
+              <span className="w-3 h-3 rounded-sm bg-purple-600 mr-1.5"></span>
+              Mule UPI VPA
+            </span>
+            <span className="flex items-center">
+              <span className="w-3 h-3 bg-emerald-600 mr-1.5 [clip-path:polygon(50%_0%,0%_100%,100%_100%)]"></span>
+              Phone Number
+            </span>
+            <span className="flex items-center">
+              <span className="w-3 h-3 rounded-xs bg-amber-600 mr-1.5"></span>
+              Phishing Domain
+            </span>
+            <span className="ml-auto text-[11px] text-slate-400 font-normal">
+              {graphData.nodes ? `${graphData.nodes.length} Nodes • ${graphData.edges.length} Links Indexed` : ''}
             </span>
           </div>
 
-          <div
-            ref={containerRef}
-            className="w-full h-[520px] bg-slate-50/70 rounded-xl border border-slate-100"
-          ></div>
-        </div>
-
-        {/* Node Inspection Panel */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-          <div className="flex items-center space-x-2 text-xs font-bold uppercase tracking-wider text-slate-800">
-            <Info className="w-4 h-4 text-cyan-600" />
-            <span>Node Intelligence</span>
-          </div>
-
-          {selectedNode ? (
-            <div className="space-y-4 text-xs">
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <span className="text-[10px] uppercase font-bold text-slate-400">Selected Entity</span>
-                <div className="font-mono font-bold text-sm text-slate-900 mt-1 break-all">
-                  {selectedNode.label}
-                </div>
-                <div className="text-[11px] text-cyan-700 font-semibold mt-1 uppercase">
-                  Type: {selectedNode.type}
+          {/* Canvas Mount */}
+          <div className="relative flex-1 w-full min-h-[500px]">
+            {loading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-slate-50/70 z-10">
+                <div className="flex items-center space-x-2 text-xs font-bold text-cyan-600 animate-pulse">
+                  <Network className="w-5 h-5 animate-spin" />
+                  <span>Loading Syndicate Graph...</span>
                 </div>
               </div>
+            )}
+            <div ref={containerRef} className="w-full h-full min-h-[500px]" />
+          </div>
 
-              {selectedNode.type === 'case' ? (
-                <div className="space-y-2">
-                  <div className="flex justify-between p-2 bg-slate-50 rounded-lg">
-                    <span className="text-slate-500">Risk Assessment:</span>
-                    <span className="font-bold text-red-600">
-                      {selectedNode.risk} ({selectedNode.score}/100)
-                    </span>
-                  </div>
-                  <div className="flex justify-between p-2 bg-slate-50 rounded-lg">
-                    <span className="text-slate-500">Threat Vector:</span>
-                    <span className="font-bold text-slate-800">{selectedNode.source}</span>
-                  </div>
-                  <a
-                    href={`/cases?id=${selectedNode.id}`}
-                    className="block text-center py-2 bg-slate-900 text-white rounded-lg font-bold hover:bg-slate-800 transition"
-                  >
-                    Open Case Dossier
-                  </a>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="p-2.5 bg-red-50 border border-red-200 rounded-lg">
-                    <span className="text-red-700 font-bold block">Syndicate Linkage</span>
-                    <span className="text-red-600 text-[11px] mt-0.5 block">
-                      Appears across {selectedNode.case_count || selectedNode.cases?.length || 1} distinct FIRs.
-                    </span>
-                  </div>
+          <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-400 flex items-center justify-between">
+            <span>Tip: Drag nodes to rearrange • Scroll to zoom • Click any node for connected case intelligence.</span>
+            <span className="text-emerald-600 font-bold">Auto-Stabilizing Barnes-Hut Physics</span>
+          </div>
+        </div>
 
-                  {selectedNode.cases && (
-                    <div>
-                      <span className="text-[11px] font-bold text-slate-600">Connected Cases:</span>
-                      <div className="mt-1 space-y-1">
-                        {selectedNode.cases.map((cid, i) => (
-                          <a
-                            key={i}
-                            href={`/cases?id=${cid}`}
-                            className="block p-1.5 bg-slate-50 hover:bg-slate-100 rounded font-mono text-[11px] text-cyan-700 font-semibold"
-                          >
-                            {cid}
-                          </a>
-                        ))}
-                      </div>
+        {/* Node Intelligence Sidebar */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center space-x-2 text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-3">
+              <Info className="w-4 h-4 text-cyan-500" />
+              <span>Node Intelligence</span>
+            </div>
+
+            {selectedNode ? (
+              <div className="mt-4 space-y-4">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    {selectedNode.type} Identifier
+                  </div>
+                  <div className="text-sm font-black text-slate-900 break-all mt-0.5">
+                    {selectedNode.label}
+                  </div>
+                  {selectedNode.risk && (
+                    <div className="mt-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wide bg-rose-100 text-rose-700">
+                      {selectedNode.risk} Threat Assessment
                     </div>
                   )}
                 </div>
-              )}
-            </div>
-          ) : (
-            <div className="text-slate-400 text-xs text-center py-12 space-y-2">
-              <Network className="w-8 h-8 mx-auto text-slate-300" />
-              <p>Click on any node in the graph to inspect connected FIRs, shared endpoints, and evidentiary records.</p>
-            </div>
+
+                {/* Connected Cases & Entities */}
+                <div>
+                  <div className="text-xs font-bold text-slate-700 mb-2 flex items-center justify-between">
+                    <span>Associated Network ({selectedNode.connections?.length || 0})</span>
+                  </div>
+                  <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                    {selectedNode.connections && selectedNode.connections.length > 0 ? (
+                      selectedNode.connections.map((c, idx) => (
+                        <div
+                          key={idx}
+                          className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-1"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold uppercase text-cyan-600">{c.type}</span>
+                            {c.risk && (
+                              <span
+                                className={`text-[10px] font-bold ${
+                                  c.risk === 'HIGH' ? 'text-rose-600' : 'text-amber-600'
+                                }`}
+                              >
+                                {c.risk}
+                              </span>
+                            )}
+                          </div>
+                          <div className="font-semibold text-slate-800 break-all">{c.label}</div>
+                          {c.type === 'case' && (
+                            <Link
+                              to={`/cases?id=${c.id}`}
+                              className="inline-flex items-center text-[10px] text-cyan-600 font-bold hover:underline mt-1"
+                            >
+                              <span>Inspect Dossier</span>
+                              <ExternalLink className="w-3 h-3 ml-1" />
+                            </Link>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-xs text-slate-400 italic">No connected nodes in active view.</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-16 text-center text-slate-400 space-y-3">
+                <Network className="w-10 h-10 mx-auto text-slate-300 stroke-[1.5]" />
+                <p className="text-xs">
+                  Click on any node in the graph to inspect connected FIRs, shared endpoints, and evidentiary records.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {selectedNode?.type === 'case' && (
+            <Link
+              to={`/cases?id=${selectedNode.id}`}
+              className="mt-4 w-full py-2 px-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl text-xs flex items-center justify-center space-x-1.5 transition"
+            >
+              <span>Open Complete Case Dossier</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </Link>
           )}
         </div>
       </div>

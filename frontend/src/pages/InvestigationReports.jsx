@@ -33,7 +33,7 @@ export default function InvestigationReports() {
         <div>
           <div className="flex items-center space-x-2 text-xs font-bold uppercase tracking-wider text-cyan-600">
             <FileText className="w-4 h-4" />
-            <span>Module 8 • Forensic Documentation & Section 65B</span>
+            <span>Forensic Documentation & Section 65B Compliance</span>
           </div>
           <h1 className="text-2xl font-black text-slate-900 mt-1">Investigation Evidence Dossiers</h1>
           <p className="text-xs text-slate-500 mt-1">

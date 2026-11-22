@@ -91,17 +91,32 @@ assert len(graph['nodes']) > 10
 assert len(graph['edges']) > 5
 
 # 9. AI Investigation Assistant
-print("\n[+] 9. Testing AI Investigation Assistant...")
+print("\n[+] 9. Testing AI Investigation Assistant (Natural Language & SOPs)...")
 chat_resp = answer_investigation_query("Which phone number appears in multiple cases?")
 print(f"    Query Answer Length: {len(chat_resp['answer'])} chars")
 print(f"    References Cited: {chat_resp['references']}")
 assert len(chat_resp['references']) > 0
 
-# 10. PDF Forensic Dossier Generation
-print("\n[+] 10. Testing Section 65B PDF Dossier Generation...")
+chat_threat = answer_investigation_query("threat cam what to do")
+print(f"    'threat cam what to do' response length: {len(chat_threat['answer'])} chars")
+assert "Digital Arrest" in chat_threat['answer'] or "1930" in chat_threat['answer']
+print("    'threat cam what to do' correctly matched Cyber Police extortion protocol!")
+
+# 10. Threat Heat-List Time Window Filtering
+print("\n[+] 10. Testing Heat-List Time Window Dynamics (7 vs 30 vs ALL)...")
+heat_7 = get_heat_list(days=7)
+heat_30 = get_heat_list(days=30)
+heat_all = get_heat_list(days=None)
+print(f"    Last 7 Days Domains: {len(heat_7['domain'])} entries")
+print(f"    Last 30 Days Domains: {len(heat_30['domain'])} entries")
+print(f"    All-Time Domains: {len(heat_all['domain'])} entries")
+assert len(heat_all['domain']) >= len(heat_7['domain'])
+
+# 11. PDF Forensic Dossier Generation
+print("\n[+] 11. Testing Section 65B PDF Dossier Generation...")
 pdf_path = generate_case_pdf(case_detail)
 print(f"    PDF Created: {pdf_path} (Size: {os.path.getsize(pdf_path)} bytes)")
 assert os.path.exists(pdf_path) and os.path.getsize(pdf_path) > 1000
 
-print("\n>>> ALL 10 TEST PHASES PASSED WITH ZERO ERRORS! <<<")
+print("\n>>> ALL 11 TEST PHASES PASSED WITH ZERO ERRORS! <<<")
 print(">>> BACKEND IS 100% PRODUCTION READY FOR HACKATHON EVALUATION <<<\n")

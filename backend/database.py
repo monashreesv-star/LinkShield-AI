@@ -93,12 +93,13 @@ def save_case(
     extracted_entities: Dict[str, List[str]],
     title: str = "",
     raw_metadata: Optional[Dict[str, Any]] = None,
-    is_synthetic: bool = False
+    is_synthetic: bool = False,
+    custom_timestamp: Optional[str] = None
 ) -> str:
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    timestamp = custom_timestamp or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     hash_obj = hashlib.sha256(f"{full_input}_{timestamp}".encode("utf-8"))
     evidence_hash = hash_obj.hexdigest()
     case_id = f"LS-{datetime.now().strftime('%Y%m%d')}-{evidence_hash[:6].upper()}"
@@ -130,7 +131,7 @@ def save_case(
         1 if is_synthetic else 0
     ))
 
-    # Insert extracted entities
+    # Insert extracted entities with matching timestamp
     for entity_type, values in extracted_entities.items():
         if isinstance(values, list):
             for val in set(values):
@@ -444,7 +445,7 @@ def get_relationship_graph() -> Dict[str, Any]:
     return {"nodes": nodes, "edges": edges}
 
 def seed_synthetic_dataset(force: bool = False):
-    """Loads all 30+ labeled synthetic cases from backend.synthetic_data."""
+    """Loads all 30+ labeled synthetic cases with staggered realistic historical dates."""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT COUNT(*) FROM cases;")
@@ -457,9 +458,17 @@ def seed_synthetic_dataset(force: bool = False):
     from backend.synthetic_data import SYNTHETIC_DATASET
     from backend.analyzer import analyze_message, analyze_url_heuristics, analyze_website_content
 
-    for item in SYNTHETIC_DATASET:
+    for i, item in enumerate(SYNTHETIC_DATASET):
         src = item["source_type"]
         content = item["content"]
+
+        # Stagger dates across recent (1-5 days), medium (10-25 days), and older (35-70 days)
+        if i < 10:
+            case_date = (datetime.now() - timedelta(days=(i % 4) + 1, hours=i * 2)).strftime("%Y-%m-%d %H:%M:%S")
+        elif i < 20:
+            case_date = (datetime.now() - timedelta(days=12 + (i % 12), hours=i * 3)).strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            case_date = (datetime.now() - timedelta(days=35 + (i % 30), hours=i * 4)).strftime("%Y-%m-%d %H:%M:%S")
 
         if "Message" in src:
             res = analyze_message(content)
@@ -491,7 +500,8 @@ def seed_synthetic_dataset(force: bool = False):
             recommendation=res["recommendation"],
             extracted_entities=all_entities,
             title=item.get("label", ""),
-            is_synthetic=True
+            is_synthetic=True,
+            custom_timestamp=case_date
         )
 
 def get_settings() -> Dict[str, str]:

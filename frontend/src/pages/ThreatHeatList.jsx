@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Flame, Globe, Phone, CreditCard, Mail, Coins, ShieldAlert, ArrowUpRight } from 'lucide-react';
+import { Flame, Globe, Phone, CreditCard, Mail, Coins, ShieldAlert, ArrowUpRight, Filter, Calendar } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function ThreatHeatList() {
-  const [days, setDays] = useState('ALL');
+  const [days, setDays] = useState('7');
   const [heatData, setHeatData] = useState({ domain: [], phone: [], upi: [], url: [], email: [] });
   const [loading, setLoading] = useState(true);
 
@@ -23,13 +23,13 @@ export default function ThreatHeatList() {
   }, [days]);
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6 max-w-7xl mx-auto font-sans">
       {/* Title */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center space-x-2 text-xs font-bold uppercase tracking-wider text-amber-600">
             <Flame className="w-4 h-4" />
-            <span>Module 7 • State-Wide Threat Heat-List</span>
+            <span>Statewide High-Frequency Scam Registry</span>
           </div>
           <h1 className="text-2xl font-black text-slate-900 mt-1">Trending Cyber Threat Heat-List</h1>
           <p className="text-xs text-slate-500 mt-1">
@@ -73,32 +73,45 @@ export default function ThreatHeatList() {
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center space-x-2">
               <Globe className="w-4 h-4 text-amber-500" />
-              <h2 className="text-sm font-bold text-slate-900">Trending Phishing Domains</h2>
+              <h3 className="text-sm font-bold text-slate-800">Trending Phishing Domains</h3>
             </div>
-            <span className="text-[10px] font-bold uppercase text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+            <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
               DNS Priority
             </span>
           </div>
 
-          <div className="space-y-2.5">
-            {heatData.domain?.map((d, i) => (
-              <div key={i} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
-                <div>
-                  <div className="font-mono text-xs font-bold text-slate-800">{d.entity_value}</div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">Last observed: {d.last_seen?.slice(0, 10)}</div>
+          <div className="space-y-2">
+            {loading ? (
+              <div className="text-xs text-slate-400 py-6 text-center animate-pulse">Scanning domains...</div>
+            ) : heatData.domain && heatData.domain.length > 0 ? (
+              heatData.domain.map((item, idx) => (
+                <div
+                  key={idx}
+                  className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between hover:bg-slate-100/80 transition"
+                >
+                  <div className="truncate mr-3">
+                    <div className="text-xs font-mono font-bold text-slate-900 truncate">
+                      {item.value}
+                    </div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">
+                      Last observed: {item.last_seen ? item.last_seen.slice(0, 10) : 'Recent'}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="inline-block px-2 py-0.5 bg-rose-100 text-rose-700 font-bold text-xs rounded-md">
+                      {item.count} FIRs
+                    </span>
+                    <Link
+                      to={`/cases?q=${encodeURIComponent(item.value)}`}
+                      className="block text-[10px] font-bold text-cyan-600 hover:underline mt-1"
+                    >
+                      Trace ↗
+                    </Link>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <span className="px-2 py-0.5 bg-amber-100 text-amber-800 font-bold text-[10px] rounded-md">
-                    {d.case_count} FIRs
-                  </span>
-                  <Link to={`/cases?q=${d.entity_value}`} className="block text-[10px] text-cyan-600 hover:underline mt-1">
-                    Trace <ArrowUpRight className="w-2.5 h-2.5 inline" />
-                  </Link>
-                </div>
-              </div>
-            ))}
-            {!heatData.domain?.length && (
-              <div className="text-center py-6 text-slate-400 text-xs">No active domains in this period.</div>
+              ))
+            ) : (
+              <div className="text-xs text-slate-400 py-6 text-center">No domains recorded in this period.</div>
             )}
           </div>
         </div>
@@ -108,67 +121,93 @@ export default function ThreatHeatList() {
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center space-x-2">
               <Phone className="w-4 h-4 text-emerald-500" />
-              <h2 className="text-sm font-bold text-slate-900">Flagged Scam Numbers</h2>
+              <h3 className="text-sm font-bold text-slate-800">Flagged Scam Numbers</h3>
             </div>
-            <span className="text-[10px] font-bold uppercase text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+            <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
               CDR Subpoena
             </span>
           </div>
 
-          <div className="space-y-2.5">
-            {heatData.phone?.map((p, i) => (
-              <div key={i} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
-                <div>
-                  <div className="font-mono text-xs font-bold text-slate-800">{p.entity_value}</div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">Last observed: {p.last_seen?.slice(0, 10)}</div>
+          <div className="space-y-2">
+            {loading ? (
+              <div className="text-xs text-slate-400 py-6 text-center animate-pulse">Scanning telephony...</div>
+            ) : heatData.phone && heatData.phone.length > 0 ? (
+              heatData.phone.map((item, idx) => (
+                <div
+                  key={idx}
+                  className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between hover:bg-slate-100/80 transition"
+                >
+                  <div className="truncate mr-3">
+                    <div className="text-xs font-mono font-bold text-slate-900 truncate">
+                      {item.value}
+                    </div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">
+                      Last observed: {item.last_seen ? item.last_seen.slice(0, 10) : 'Recent'}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="inline-block px-2 py-0.5 bg-emerald-100 text-emerald-700 font-bold text-xs rounded-md">
+                      {item.count} FIRs
+                    </span>
+                    <Link
+                      to={`/cases?q=${encodeURIComponent(item.value)}`}
+                      className="block text-[10px] font-bold text-cyan-600 hover:underline mt-1"
+                    >
+                      Trace ↗
+                    </Link>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold text-[10px] rounded-md">
-                    {p.case_count} FIRs
-                  </span>
-                  <Link to={`/cases?q=${p.entity_value}`} className="block text-[10px] text-cyan-600 hover:underline mt-1">
-                    Trace <ArrowUpRight className="w-2.5 h-2.5 inline" />
-                  </Link>
-                </div>
-              </div>
-            ))}
-            {!heatData.phone?.length && (
-              <div className="text-center py-6 text-slate-400 text-xs">No active phone numbers in this period.</div>
+              ))
+            ) : (
+              <div className="text-xs text-slate-400 py-6 text-center">No numbers recorded in this period.</div>
             )}
           </div>
         </div>
 
-        {/* Mule UPI Accounts */}
+        {/* Mule UPI VPAs */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center space-x-2">
               <CreditCard className="w-4 h-4 text-purple-500" />
-              <h2 className="text-sm font-bold text-slate-900">Mule UPI VPAs</h2>
+              <h3 className="text-sm font-bold text-slate-800">Mule UPI VPAs</h3>
             </div>
-            <span className="text-[10px] font-bold uppercase text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+            <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200">
               NPCI Freeze
             </span>
           </div>
 
-          <div className="space-y-2.5">
-            {heatData.upi?.map((u, i) => (
-              <div key={i} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
-                <div>
-                  <div className="font-mono text-xs font-bold text-slate-800">{u.entity_value}</div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">Last observed: {u.last_seen?.slice(0, 10)}</div>
+          <div className="space-y-2">
+            {loading ? (
+              <div className="text-xs text-slate-400 py-6 text-center animate-pulse">Scanning banking VPAs...</div>
+            ) : heatData.upi && heatData.upi.length > 0 ? (
+              heatData.upi.map((item, idx) => (
+                <div
+                  key={idx}
+                  className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between hover:bg-slate-100/80 transition"
+                >
+                  <div className="truncate mr-3">
+                    <div className="text-xs font-mono font-bold text-slate-900 truncate">
+                      {item.value}
+                    </div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">
+                      Last observed: {item.last_seen ? item.last_seen.slice(0, 10) : 'Recent'}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="inline-block px-2 py-0.5 bg-purple-100 text-purple-700 font-bold text-xs rounded-md">
+                      {item.count} FIRs
+                    </span>
+                    <Link
+                      to={`/cases?q=${encodeURIComponent(item.value)}`}
+                      className="block text-[10px] font-bold text-cyan-600 hover:underline mt-1"
+                    >
+                      Trace ↗
+                    </Link>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <span className="px-2 py-0.5 bg-purple-100 text-purple-800 font-bold text-[10px] rounded-md">
-                    {u.case_count} FIRs
-                  </span>
-                  <Link to={`/cases?q=${u.entity_value}`} className="block text-[10px] text-cyan-600 hover:underline mt-1">
-                    Trace <ArrowUpRight className="w-2.5 h-2.5 inline" />
-                  </Link>
-                </div>
-              </div>
-            ))}
-            {!heatData.upi?.length && (
-              <div className="text-center py-6 text-slate-400 text-xs">No active UPI accounts in this period.</div>
+              ))
+            ) : (
+              <div className="text-xs text-slate-400 py-6 text-center">No mule VPAs recorded in this period.</div>
             )}
           </div>
         </div>

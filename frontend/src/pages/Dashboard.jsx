@@ -80,7 +80,7 @@ export default function Dashboard() {
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-cyan-950 text-cyan-400 border border-cyan-800 tracking-wider">
               Rajasthan Police Cyber Command
             </span>
-            <span className="text-xs text-slate-400">• PS01 Threat Monitor</span>
+            <span className="text-xs text-slate-400">• Live Threat Monitor</span>
           </div>
           <h1 className="text-2xl font-black mt-2 tracking-tight">
             Unified Threat Intelligence Dashboard

@@ -66,7 +66,7 @@ export default function Settings() {
       <div>
         <div className="flex items-center space-x-2 text-xs font-bold uppercase tracking-wider text-cyan-600">
           <SettingsIcon className="w-4 h-4" />
-          <span>Module 10 • Configuration & Policy</span>
+          <span>Command Configuration & Policy Calibration</span>
         </div>
         <h1 className="text-2xl font-black text-slate-900 mt-1">System & Calibration Settings</h1>
         <p className="text-xs text-slate-500 mt-1">
