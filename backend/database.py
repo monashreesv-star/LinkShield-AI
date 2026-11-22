@@ -1,10 +1,11 @@
+import os
 import sqlite3
 import json
 import hashlib
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
-DB_PATH = "linkedshield.db"
+DB_PATH = "/tmp/linkedshield.db" if os.environ.get("VERCEL") else "linkedshield.db"
 
 def get_db_connection():
     conn = sqlite3.connect(DB_PATH)

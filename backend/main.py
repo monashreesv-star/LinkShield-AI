@@ -36,10 +36,14 @@ app.add_middleware(
 # Startup hook to initialize database and seed sample cases
 @app.on_event("startup")
 def on_startup():
+    reports_dir = "/tmp/reports" if os.environ.get("VERCEL") else "reports"
+    os.makedirs(reports_dir, exist_ok=True)
+    try:
+        os.makedirs("static", exist_ok=True)
+    except Exception:
+        pass
     init_db()
     seed_sample_data()
-    os.makedirs("reports", exist_ok=True)
-    os.makedirs("static", exist_ok=True)
 
 # Request Models
 class MessageRequest(BaseModel):
@@ -173,7 +177,8 @@ def api_download_case_pdf(case_id: str):
     if not case:
         raise HTTPException(status_code=404, detail="Case not found.")
     
-    pdf_path = f"reports/Case_{case_id}.pdf"
+    reports_dir = "/tmp/reports" if os.environ.get("VERCEL") else "reports"
+    pdf_path = f"{reports_dir}/Case_{case_id}.pdf"
     if not os.path.exists(pdf_path):
         generate_case_pdf(case, pdf_path)
     

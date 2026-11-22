@@ -9,9 +9,10 @@ from typing import Dict, Any
 
 def generate_case_pdf(case_data: Dict[str, Any], output_path: str = None) -> str:
     """Generates an investigation-ready Section 65B evidence dossier PDF."""
+    reports_dir = "/tmp/reports" if os.environ.get("VERCEL") else "reports"
     if not output_path:
-        os.makedirs("reports", exist_ok=True)
-        output_path = f"reports/Case_{case_data['case_id']}.pdf"
+        os.makedirs(reports_dir, exist_ok=True)
+        output_path = f"{reports_dir}/Case_{case_data['case_id']}.pdf"
 
     doc = SimpleDocTemplate(
         output_path,
