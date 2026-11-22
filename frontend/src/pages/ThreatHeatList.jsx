@@ -84,32 +84,36 @@ export default function ThreatHeatList() {
             {loading ? (
               <div className="text-xs text-slate-400 py-6 text-center animate-pulse">Scanning domains...</div>
             ) : heatData.domain && heatData.domain.length > 0 ? (
-              heatData.domain.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between hover:bg-slate-100/80 transition"
-                >
-                  <div className="truncate mr-3">
-                    <div className="text-xs font-mono font-bold text-slate-900 truncate">
-                      {item.value}
+              heatData.domain.map((item, idx) => {
+                const domainVal = item.value || item.entity_value || '';
+                const firCount = item.count || item.case_count || 1;
+                return (
+                  <div
+                    key={idx}
+                    className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between hover:bg-slate-100/80 transition"
+                  >
+                    <div className="truncate mr-3">
+                      <div className="text-xs font-mono font-bold text-slate-900 truncate">
+                        {domainVal}
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        Last observed: {item.last_seen ? item.last_seen.slice(0, 10) : 'Recent'}
+                      </div>
                     </div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">
-                      Last observed: {item.last_seen ? item.last_seen.slice(0, 10) : 'Recent'}
+                    <div className="text-right shrink-0">
+                      <span className="inline-block px-2 py-0.5 bg-rose-100 text-rose-700 font-bold text-xs rounded-md">
+                        {firCount} FIRs
+                      </span>
+                      <Link
+                        to={`/cases?q=${encodeURIComponent(domainVal)}`}
+                        className="block text-[10px] font-bold text-cyan-600 hover:underline mt-1"
+                      >
+                        Trace ↗
+                      </Link>
                     </div>
                   </div>
-                  <div className="text-right shrink-0">
-                    <span className="inline-block px-2 py-0.5 bg-rose-100 text-rose-700 font-bold text-xs rounded-md">
-                      {item.count} FIRs
-                    </span>
-                    <Link
-                      to={`/cases?q=${encodeURIComponent(item.value)}`}
-                      className="block text-[10px] font-bold text-cyan-600 hover:underline mt-1"
-                    >
-                      Trace ↗
-                    </Link>
-                  </div>
-                </div>
-              ))
+                );
+              })
             ) : (
               <div className="text-xs text-slate-400 py-6 text-center">No domains recorded in this period.</div>
             )}
@@ -132,32 +136,36 @@ export default function ThreatHeatList() {
             {loading ? (
               <div className="text-xs text-slate-400 py-6 text-center animate-pulse">Scanning telephony...</div>
             ) : heatData.phone && heatData.phone.length > 0 ? (
-              heatData.phone.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between hover:bg-slate-100/80 transition"
-                >
-                  <div className="truncate mr-3">
-                    <div className="text-xs font-mono font-bold text-slate-900 truncate">
-                      {item.value}
+              heatData.phone.map((item, idx) => {
+                const phoneVal = item.value || item.entity_value || '';
+                const firCount = item.count || item.case_count || 1;
+                return (
+                  <div
+                    key={idx}
+                    className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between hover:bg-slate-100/80 transition"
+                  >
+                    <div className="truncate mr-3">
+                      <div className="text-xs font-mono font-bold text-slate-900 truncate">
+                        {phoneVal}
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        Last observed: {item.last_seen ? item.last_seen.slice(0, 10) : 'Recent'}
+                      </div>
                     </div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">
-                      Last observed: {item.last_seen ? item.last_seen.slice(0, 10) : 'Recent'}
+                    <div className="text-right shrink-0">
+                      <span className="inline-block px-2 py-0.5 bg-emerald-100 text-emerald-700 font-bold text-xs rounded-md">
+                        {firCount} FIRs
+                      </span>
+                      <Link
+                        to={`/cases?q=${encodeURIComponent(phoneVal)}`}
+                        className="block text-[10px] font-bold text-cyan-600 hover:underline mt-1"
+                      >
+                        Trace ↗
+                      </Link>
                     </div>
                   </div>
-                  <div className="text-right shrink-0">
-                    <span className="inline-block px-2 py-0.5 bg-emerald-100 text-emerald-700 font-bold text-xs rounded-md">
-                      {item.count} FIRs
-                    </span>
-                    <Link
-                      to={`/cases?q=${encodeURIComponent(item.value)}`}
-                      className="block text-[10px] font-bold text-cyan-600 hover:underline mt-1"
-                    >
-                      Trace ↗
-                    </Link>
-                  </div>
-                </div>
-              ))
+                );
+              })
             ) : (
               <div className="text-xs text-slate-400 py-6 text-center">No numbers recorded in this period.</div>
             )}
@@ -180,32 +188,36 @@ export default function ThreatHeatList() {
             {loading ? (
               <div className="text-xs text-slate-400 py-6 text-center animate-pulse">Scanning banking VPAs...</div>
             ) : heatData.upi && heatData.upi.length > 0 ? (
-              heatData.upi.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between hover:bg-slate-100/80 transition"
-                >
-                  <div className="truncate mr-3">
-                    <div className="text-xs font-mono font-bold text-slate-900 truncate">
-                      {item.value}
+              heatData.upi.map((item, idx) => {
+                const upiVal = item.value || item.entity_value || '';
+                const firCount = item.count || item.case_count || 1;
+                return (
+                  <div
+                    key={idx}
+                    className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between hover:bg-slate-100/80 transition"
+                  >
+                    <div className="truncate mr-3">
+                      <div className="text-xs font-mono font-bold text-slate-900 truncate">
+                        {upiVal}
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        Last observed: {item.last_seen ? item.last_seen.slice(0, 10) : 'Recent'}
+                      </div>
                     </div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">
-                      Last observed: {item.last_seen ? item.last_seen.slice(0, 10) : 'Recent'}
+                    <div className="text-right shrink-0">
+                      <span className="inline-block px-2 py-0.5 bg-purple-100 text-purple-700 font-bold text-xs rounded-md">
+                        {firCount} FIRs
+                      </span>
+                      <Link
+                        to={`/cases?q=${encodeURIComponent(upiVal)}`}
+                        className="block text-[10px] font-bold text-cyan-600 hover:underline mt-1"
+                      >
+                        Trace ↗
+                      </Link>
                     </div>
                   </div>
-                  <div className="text-right shrink-0">
-                    <span className="inline-block px-2 py-0.5 bg-purple-100 text-purple-700 font-bold text-xs rounded-md">
-                      {item.count} FIRs
-                    </span>
-                    <Link
-                      to={`/cases?q=${encodeURIComponent(item.value)}`}
-                      className="block text-[10px] font-bold text-cyan-600 hover:underline mt-1"
-                    >
-                      Trace ↗
-                    </Link>
-                  </div>
-                </div>
-              ))
+                );
+              })
             ) : (
               <div className="text-xs text-slate-400 py-6 text-center">No mule VPAs recorded in this period.</div>
             )}

@@ -169,8 +169,8 @@ def get_cases_filtered(
 
     if search_query:
         clean_q = f"%{search_query.strip().lower()}%"
-        query += " AND (case_id LIKE ? OR full_input LIKE ? OR title LIKE ?)"
-        params.extend([clean_q, clean_q, clean_q])
+        query += " AND (case_id LIKE ? OR full_input LIKE ? OR title LIKE ? OR case_id IN (SELECT case_id FROM identifiers WHERE entity_value LIKE ?))"
+        params.extend([clean_q, clean_q, clean_q, clean_q])
 
     query += " ORDER BY id DESC LIMIT ? OFFSET ?"
     params.extend([limit, offset])
@@ -202,6 +202,24 @@ def get_case_by_id(case_id: str) -> Optional[Dict[str, Any]]:
     # Get linked identifiers
     cursor.execute("SELECT entity_type, entity_value FROM identifiers WHERE case_id = ?", (case_id,))
     d["identifiers"] = [dict(r) for r in cursor.fetchall()]
+
+    ents = {"phones": [], "upis": [], "domains": [], "urls": [], "emails": [], "crypto_wallets": []}
+    for item in d["identifiers"]:
+        etype = item.get("entity_type", "")
+        eval_ = item.get("entity_value", "")
+        if etype in ["phone", "telephony"]:
+            ents["phones"].append(eval_)
+        elif etype in ["upi", "vpa"]:
+            ents["upis"].append(eval_)
+        elif etype in ["domain"]:
+            ents["domains"].append(eval_)
+        elif etype in ["url"]:
+            ents["urls"].append(eval_)
+        elif etype in ["email"]:
+            ents["emails"].append(eval_)
+        elif etype in ["crypto", "crypto_wallet"]:
+            ents["crypto_wallets"].append(eval_)
+    d["extracted_entities"] = ents
 
     # Get notes
     cursor.execute("SELECT id, author, note_text, created_at FROM investigator_notes WHERE case_id = ? ORDER BY id DESC", (case_id,))
@@ -373,7 +391,17 @@ def get_heat_list(days: Optional[int] = None, limit: int = 15) -> Dict[str, List
         ORDER BY case_count DESC
         LIMIT ?
         """, cat_params)
-        heat_list[cat] = [dict(r) for r in cursor.fetchall()]
+        raw_rows = cursor.fetchall()
+        heat_list[cat] = [
+            {
+                "entity_value": r["entity_value"],
+                "value": r["entity_value"],
+                "case_count": r["case_count"],
+                "count": r["case_count"],
+                "last_seen": r["last_seen"]
+            }
+            for r in raw_rows
+        ]
 
     conn.close()
     return heat_list

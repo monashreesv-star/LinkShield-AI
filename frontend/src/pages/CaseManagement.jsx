@@ -36,11 +36,12 @@ export default function CaseManagement() {
   const [noticeLoading, setNoticeLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const fetchCases = () => {
+  const fetchCases = (overrideQ) => {
     setLoading(true);
+    const queryToUse = overrideQ !== undefined ? overrideQ : searchQuery;
     let url = `/api/cases?risk=${riskFilter}`;
-    if (searchQuery.trim()) {
-      url += `&q=${encodeURIComponent(searchQuery.trim())}`;
+    if (queryToUse && queryToUse.trim()) {
+      url += `&q=${encodeURIComponent(queryToUse.trim())}`;
     }
 
     fetch(url)
@@ -49,10 +50,14 @@ export default function CaseManagement() {
         setCases(data);
         setLoading(false);
 
-        // Auto-select if URL has id param
+        // Auto-select if URL has id param or auto-select first case
         const targetId = searchParams.get('id');
         if (targetId) {
           fetchCaseDetail(targetId);
+        } else if (data && data.length > 0) {
+          fetchCaseDetail(data[0].case_id);
+        } else {
+          setSelectedCase(null);
         }
       })
       .catch((err) => {
@@ -62,8 +67,10 @@ export default function CaseManagement() {
   };
 
   useEffect(() => {
-    fetchCases();
-  }, [riskFilter]);
+    const qParam = searchParams.get('q') || '';
+    setSearchQuery(qParam);
+    fetchCases(qParam);
+  }, [riskFilter, searchParams]);
 
   const fetchCaseDetail = (cid) => {
     fetch(`/api/cases/${cid}`)
