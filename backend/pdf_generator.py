@@ -178,8 +178,37 @@ def generate_case_pdf(case_data: Dict[str, Any], output_path: str = None) -> str
     story.append(t_ind)
     story.append(Spacer(1, 10))
 
+    # Connected Cases / Syndicate Links
+    connected = case_data.get("connected_cases", [])
+    if connected:
+        story.append(Paragraph("4. CROSS-CASE SYNDICATE CORRELATION LINKS", section_title))
+        conn_rows = [["Linked Case ID", "Shared Indicator", "Risk Level", "Date"]]
+        for c in connected[:4]:
+            conn_rows.append([c.get("case_id", ""), f"{c.get('entity_type','').upper()}: {c.get('entity_value','')}", c.get("risk_level",""), c.get("created_at","")])
+        t_conn = Table(conn_rows, colWidths=[2.0*inch, 2.6*inch, 1.2*inch, 1.4*inch])
+        t_conn.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0A192F')),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,0), 8),
+            ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+            ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#94A3B8')),
+            ('TOPPADDING', (0,0), (-1,-1), 3),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+        ]))
+        story.append(t_conn)
+        story.append(Spacer(1, 10))
+
+    # Investigator Notes
+    notes = case_data.get("notes", [])
+    if notes:
+        story.append(Paragraph("5. INVESTIGATOR LOG & EVIDENCE ANNOTATIONS", section_title))
+        for n in notes:
+            story.append(Paragraph(f"• <b>[{n.get('created_at','')}] {n.get('author','Investigator')}:</b> {n.get('note_text','')}", body_style))
+        story.append(Spacer(1, 10))
+
     # Directive & Recommendation
-    story.append(Paragraph("4. INVESTIGATOR DIRECTIVE & CITIZEN ADVISORY", section_title))
+    story.append(Paragraph("6. INVESTIGATOR DIRECTIVE & CITIZEN ADVISORY", section_title))
     story.append(Paragraph(f"<b>Recommendation:</b> {case_data['recommendation']}", body_style))
     story.append(Spacer(1, 15))
 

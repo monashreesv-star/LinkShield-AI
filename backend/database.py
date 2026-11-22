@@ -2,7 +2,7 @@ import os
 import sqlite3
 import json
 import hashlib
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 
 DB_PATH = "/tmp/linkedshield.db" if os.environ.get("VERCEL") else "linkedshield.db"
@@ -23,6 +23,7 @@ def init_db():
         case_id TEXT UNIQUE NOT NULL,
         created_at TEXT NOT NULL,
         source_type TEXT NOT NULL,
+        title TEXT NOT NULL,
         input_preview TEXT NOT NULL,
         full_input TEXT NOT NULL,
         risk_score INTEGER NOT NULL,
@@ -30,7 +31,8 @@ def init_db():
         indicators_json TEXT NOT NULL,
         recommendation TEXT NOT NULL,
         raw_metadata_json TEXT NOT NULL,
-        evidence_hash TEXT NOT NULL
+        evidence_hash TEXT NOT NULL,
+        is_synthetic INTEGER DEFAULT 0
     );
     """)
 
@@ -46,10 +48,37 @@ def init_db():
     );
     """)
 
-    # Create indexes for rapid search
+    # Investigator notes table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS investigator_notes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        case_id TEXT NOT NULL,
+        author TEXT NOT NULL,
+        note_text TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (case_id) REFERENCES cases(case_id)
+    );
+    """)
+
+    # System settings table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS system_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+    );
+    """)
+
+    # Indexes
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_identifiers_val ON identifiers(entity_value);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_identifiers_type ON identifiers(entity_type);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_cases_risk ON cases(risk_level);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_cases_date ON cases(created_at);")
+
+    # Seed default settings
+    cursor.execute("INSERT OR IGNORE INTO system_settings (key, value) VALUES ('low_threshold', '24');")
+    cursor.execute("INSERT OR IGNORE INTO system_settings (key, value) VALUES ('med_threshold', '49');")
+    cursor.execute("INSERT OR IGNORE INTO system_settings (key, value) VALUES ('agency_name', 'Rajasthan Police Cyber Crime Division');")
+    cursor.execute("INSERT OR IGNORE INTO system_settings (key, value) VALUES ('auto_archive_days', '90');")
 
     conn.commit()
     conn.close()
@@ -62,7 +91,9 @@ def save_case(
     indicators: List[Dict[str, Any]],
     recommendation: str,
     extracted_entities: Dict[str, List[str]],
-    raw_metadata: Optional[Dict[str, Any]] = None
+    title: str = "",
+    raw_metadata: Optional[Dict[str, Any]] = None,
+    is_synthetic: bool = False
 ) -> str:
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -72,18 +103,22 @@ def save_case(
     evidence_hash = hash_obj.hexdigest()
     case_id = f"LS-{datetime.now().strftime('%Y%m%d')}-{evidence_hash[:6].upper()}"
 
-    input_preview = full_input[:120] + ("..." if len(full_input) > 120 else "")
+    if not title:
+        title = f"{source_type} Investigation ({risk_level} Risk)"
+
+    input_preview = full_input[:140] + ("..." if len(full_input) > 140 else "")
 
     cursor.execute("""
     INSERT INTO cases (
-        case_id, created_at, source_type, input_preview, full_input,
+        case_id, created_at, source_type, title, input_preview, full_input,
         risk_score, risk_level, indicators_json, recommendation,
-        raw_metadata_json, evidence_hash
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        raw_metadata_json, evidence_hash, is_synthetic
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         case_id,
         timestamp,
         source_type,
+        title,
         input_preview,
         full_input,
         risk_score,
@@ -91,27 +126,55 @@ def save_case(
         json.dumps(indicators),
         recommendation,
         json.dumps(raw_metadata or {}),
-        evidence_hash
+        evidence_hash,
+        1 if is_synthetic else 0
     ))
 
     # Insert extracted entities
     for entity_type, values in extracted_entities.items():
-        for val in set(values):
-            clean_val = val.strip().lower()
-            if clean_val:
-                cursor.execute("""
-                INSERT INTO identifiers (case_id, entity_type, entity_value, created_at)
-                VALUES (?, ?, ?, ?)
-                """, (case_id, entity_type, clean_val, timestamp))
+        if isinstance(values, list):
+            for val in set(values):
+                clean_val = str(val).strip().lower()
+                if clean_val:
+                    cursor.execute("""
+                    INSERT INTO identifiers (case_id, entity_type, entity_value, created_at)
+                    VALUES (?, ?, ?, ?)
+                    """, (case_id, entity_type, clean_val, timestamp))
 
     conn.commit()
     conn.close()
     return case_id
 
-def get_all_cases(limit: int = 50) -> List[Dict[str, Any]]:
+def get_cases_filtered(
+    risk_level: Optional[str] = None,
+    source_type: Optional[str] = None,
+    search_query: Optional[str] = None,
+    limit: int = 100,
+    offset: int = 0
+) -> List[Dict[str, Any]]:
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM cases ORDER BY id DESC LIMIT ?", (limit,))
+
+    query = "SELECT * FROM cases WHERE 1=1"
+    params = []
+
+    if risk_level and risk_level.upper() != "ALL":
+        query += " AND risk_level = ?"
+        params.append(risk_level.upper())
+
+    if source_type and source_type.upper() != "ALL":
+        query += " AND source_type LIKE ?"
+        params.append(f"%{source_type}%")
+
+    if search_query:
+        clean_q = f"%{search_query.strip().lower()}%"
+        query += " AND (case_id LIKE ? OR full_input LIKE ? OR title LIKE ?)"
+        params.extend([clean_q, clean_q, clean_q])
+
+    query += " ORDER BY id DESC LIMIT ? OFFSET ?"
+    params.extend([limit, offset])
+
+    cursor.execute(query, params)
     rows = cursor.fetchall()
     results = []
     for r in rows:
@@ -119,6 +182,7 @@ def get_all_cases(limit: int = 50) -> List[Dict[str, Any]]:
         d["indicators"] = json.loads(d["indicators_json"])
         d["raw_metadata"] = json.loads(d["raw_metadata_json"])
         results.append(d)
+
     conn.close()
     return results
 
@@ -138,8 +202,38 @@ def get_case_by_id(case_id: str) -> Optional[Dict[str, Any]]:
     cursor.execute("SELECT entity_type, entity_value FROM identifiers WHERE case_id = ?", (case_id,))
     d["identifiers"] = [dict(r) for r in cursor.fetchall()]
 
+    # Get notes
+    cursor.execute("SELECT id, author, note_text, created_at FROM investigator_notes WHERE case_id = ? ORDER BY id DESC", (case_id,))
+    d["notes"] = [dict(r) for r in cursor.fetchall()]
+
+    # Find connected cases (cases sharing any identifier with this case)
+    cursor.execute("""
+    SELECT DISTINCT i2.case_id, c.risk_level, c.source_type, c.created_at, c.input_preview, i1.entity_type, i1.entity_value
+    FROM identifiers i1
+    JOIN identifiers i2 ON i1.entity_value = i2.entity_value AND i1.entity_type = i2.entity_type
+    JOIN cases c ON i2.case_id = c.case_id
+    WHERE i1.case_id = ? AND i2.case_id != ?
+    ORDER BY c.id DESC LIMIT 10
+    """, (case_id, case_id))
+    d["connected_cases"] = [dict(r) for r in cursor.fetchall()]
+
     conn.close()
     return d
+
+def add_investigator_note(case_id: str, author: str, note_text: str) -> Dict[str, Any]:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    cursor.execute("""
+    INSERT INTO investigator_notes (case_id, author, note_text, created_at)
+    VALUES (?, ?, ?, ?)
+    """, (case_id, author or "Investigator", note_text, timestamp))
+
+    note_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return {"id": note_id, "case_id": case_id, "author": author, "note_text": note_text, "created_at": timestamp}
 
 def search_cases_and_identifiers(query: str) -> Dict[str, Any]:
     query_clean = query.strip().lower()
@@ -152,16 +246,16 @@ def search_cases_and_identifiers(query: str) -> Dict[str, Any]:
     FROM identifiers i
     JOIN cases c ON i.case_id = c.case_id
     WHERE i.entity_value LIKE ?
-    ORDER BY c.id DESC
+    ORDER BY c.id DESC LIMIT 30
     """, (f"%{query_clean}%",))
     matched_identifiers = [dict(r) for r in cursor.fetchall()]
 
     # Search in cases
     cursor.execute("""
     SELECT * FROM cases
-    WHERE full_input LIKE ? OR case_id LIKE ? OR indicators_json LIKE ?
-    ORDER BY id DESC LIMIT 20
-    """, (f"%{query_clean}%", f"%{query_clean}%", f"%{query_clean}%"))
+    WHERE full_input LIKE ? OR case_id LIKE ? OR indicators_json LIKE ? OR title LIKE ?
+    ORDER BY id DESC LIMIT 30
+    """, (f"%{query_clean}%", f"%{query_clean}%", f"%{query_clean}%", f"%{query_clean}%"))
     matched_cases = []
     for r in cursor.fetchall():
         d = dict(r)
@@ -176,53 +270,139 @@ def search_cases_and_identifiers(query: str) -> Dict[str, Any]:
         "total_results": len(matched_identifiers) + len(matched_cases)
     }
 
-def get_heat_list(limit: int = 10) -> Dict[str, List[Dict[str, Any]]]:
-    """Returns top reported domains, phones, and UPI accounts across all cases."""
+def get_dashboard_stats() -> Dict[str, Any]:
+    """Dynamically calculates high-level metrics and distributions from persistent SQLite storage."""
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    categories = ["phone", "upi", "domain", "bank_account"]
+    # Total & risk level counts
+    cursor.execute("SELECT COUNT(*) FROM cases;")
+    total_cases = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(*) FROM cases WHERE risk_level = 'HIGH';")
+    high_cases = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(*) FROM cases WHERE risk_level = 'MEDIUM';")
+    medium_cases = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(*) FROM cases WHERE risk_level = 'LOW';")
+    low_cases = cursor.fetchone()[0]
+
+    # Unique entities
+    cursor.execute("SELECT COUNT(DISTINCT entity_value) FROM identifiers WHERE entity_type = 'domain';")
+    suspicious_domains = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(DISTINCT entity_value) FROM identifiers WHERE entity_type = 'phone';")
+    flagged_phones = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(DISTINCT entity_value) FROM identifiers WHERE entity_type = 'upi';")
+    flagged_upis = cursor.fetchone()[0]
+
+    # Repeated entities (appearing in >1 case)
+    cursor.execute("""
+    SELECT COUNT(*) FROM (
+        SELECT entity_value FROM identifiers GROUP BY entity_value HAVING COUNT(DISTINCT case_id) > 1
+    );
+    """)
+    repeated_identifiers = cursor.fetchone()[0]
+
+    # Distribution by threat vector
+    cursor.execute("""
+    SELECT source_type, COUNT(*) as count FROM cases GROUP BY source_type ORDER BY count DESC;
+    """)
+    vector_distribution = [dict(r) for r in cursor.fetchall()]
+
+    # Recent cases
+    cursor.execute("SELECT case_id, created_at, source_type, title, risk_score, risk_level, input_preview FROM cases ORDER BY id DESC LIMIT 8;")
+    recent_cases = [dict(r) for r in cursor.fetchall()]
+
+    # Identifier frequencies (Top 5 across types)
+    cursor.execute("""
+    SELECT entity_value, entity_type, COUNT(DISTINCT case_id) as cases_count
+    FROM identifiers
+    GROUP BY entity_value, entity_type
+    ORDER BY cases_count DESC
+    LIMIT 6;
+    """)
+    top_repeat_entities = [dict(r) for r in cursor.fetchall()]
+
+    conn.close()
+
+    return {
+        "total_cases": total_cases,
+        "high_risk_cases": high_cases,
+        "medium_risk_cases": medium_cases,
+        "low_risk_cases": low_cases,
+        "suspicious_domains": suspicious_domains,
+        "flagged_phones": flagged_phones,
+        "flagged_upis": flagged_upis,
+        "repeated_identifiers": repeated_identifiers,
+        "risk_breakdown": [
+            {"name": "High Risk", "value": high_cases, "color": "#EF4444"},
+            {"name": "Medium Risk", "value": medium_cases, "color": "#F59E0B"},
+            {"name": "Low Risk", "value": low_cases, "color": "#10B981"}
+        ],
+        "vector_distribution": vector_distribution,
+        "recent_cases": recent_cases,
+        "top_repeat_entities": top_repeat_entities
+    }
+
+def get_heat_list(days: Optional[int] = None, limit: int = 15) -> Dict[str, List[Dict[str, Any]]]:
+    """Returns top reported domains, phones, UPIs, emails, and apps across distinct cases."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    time_clause = ""
+    params = []
+    if days:
+        cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
+        time_clause = "AND created_at >= ?"
+        params.append(cutoff)
+
+    categories = ["domain", "phone", "upi", "url", "email", "crypto"]
     heat_list = {}
 
     for cat in categories:
-        cursor.execute("""
-        SELECT entity_value, COUNT(DISTINCT case_id) as case_count
+        cat_params = [cat] + params + [limit]
+        cursor.execute(f"""
+        SELECT entity_value, COUNT(DISTINCT case_id) as case_count, MAX(created_at) as last_seen
         FROM identifiers
-        WHERE entity_type = ?
+        WHERE entity_type = ? {time_clause}
         GROUP BY entity_value
         ORDER BY case_count DESC
         LIMIT ?
-        """, (cat, limit))
+        """, cat_params)
         heat_list[cat] = [dict(r) for r in cursor.fetchall()]
 
     conn.close()
     return heat_list
 
 def get_relationship_graph() -> Dict[str, Any]:
-    """Builds a node-edge graph linking cases with shared identifiers."""
+    """Constructs a node-edge graph connecting cases and shared actionable identifiers."""
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT case_id, risk_level, source_type, risk_score FROM cases ORDER BY id DESC LIMIT 30")
+    cursor.execute("SELECT case_id, risk_level, source_type, risk_score, title FROM cases ORDER BY id DESC LIMIT 40;")
     cases = cursor.fetchall()
 
     cursor.execute("""
     SELECT entity_type, entity_value, case_id
     FROM identifiers
-    WHERE case_id IN (SELECT case_id FROM cases ORDER BY id DESC LIMIT 30)
+    WHERE case_id IN (SELECT case_id FROM cases ORDER BY id DESC LIMIT 40);
     """)
     links = cursor.fetchall()
 
     nodes = []
     edges = []
-    seen_nodes = set()
+    case_ids = set()
 
     for c in cases:
         cid = c["case_id"]
-        seen_nodes.add(cid)
+        case_ids.add(cid)
         nodes.append({
             "id": cid,
             "label": cid,
+            "title": c["title"],
             "type": "case",
             "risk": c["risk_level"],
             "score": c["risk_score"],
@@ -243,16 +423,18 @@ def get_relationship_graph() -> Dict[str, Any]:
 
     # Add entity nodes and edges
     for e_key, data in entity_map.items():
-        # Only highlight if shared across cases OR high value
         node_id = data["id"]
+        case_count = len(set(data["cases"]))
         nodes.append({
             "id": node_id,
             "label": data["label"],
             "type": data["type"],
-            "case_count": len(data["cases"])
+            "case_count": case_count,
+            "cases": list(set(data["cases"]))
         })
-        for cid in data["cases"]:
+        for cid in set(data["cases"]):
             edges.append({
+                "id": f"{cid}->{node_id}",
                 "from": cid,
                 "to": node_id,
                 "type": data["type"]
@@ -261,89 +443,69 @@ def get_relationship_graph() -> Dict[str, Any]:
     conn.close()
     return {"nodes": nodes, "edges": edges}
 
-def seed_sample_data():
-    """Populates realistic demo cases if database is empty."""
+def seed_synthetic_dataset(force: bool = False):
+    """Loads all 30+ labeled synthetic cases from backend.synthetic_data."""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT COUNT(*) FROM cases;")
     count = cursor.fetchone()[0]
     conn.close()
 
-    if count > 0:
+    if count > 5 and not force:
         return
 
-    # Seed Case 1: Electricity Cutoff Scam
-    save_case(
-        source_type="Message (SMS)",
-        full_input="Dear Consumer, Your electricity power will be disconnected tonight at 9:30 PM from the power office because your previous month bill was not updated. Please immediately contact our officer at 9876543210 or update bill at http://jvvnl-bijli-update.online. Urgently pay pending Rs. 450.",
-        risk_score=85,
-        risk_level="HIGH",
-        indicators=[
-            {"name": "Urgent Threat & Disconnection Language", "score": 25, "reason": "Threatens electricity cutoff tonight at 9:30 PM to trigger panic."},
-            {"name": "Lookalike Utility Domain (JVVNL)", "score": 25, "reason": "Impersonates Jaipur Vidyut Vitran Nigam with suspicious TLD .online."},
-            {"name": "Unverified Contact Officer", "score": 15, "reason": "Provides personal mobile number 9876543210 instead of official discom IVR."},
-            {"name": "Missing HTTPS / Insecure Link", "score": 20, "reason": "Uses plain unencrypted HTTP protocol."}
-        ],
-        recommendation="DO NOT call the number or pay. Discoms never disconnect power via personal SMS. Verify at energy.rajasthan.gov.in.",
-        extracted_entities={
-            "phone": ["9876543210"],
-            "domain": ["jvvnl-bijli-update.online"],
-            "upi": ["jvvnlpower@okaxis"]
-        }
-    )
+    from backend.synthetic_data import SYNTHETIC_DATASET
+    from backend.analyzer import analyze_message, analyze_url_heuristics, analyze_website_content
 
-    # Seed Case 2: Fake High-Return Ponzi Website
-    save_case(
-        source_type="Website",
-        full_input="Welcome to RoyalGrow Wealth! Invest Rs. 5000 today and get guaranteed 35% weekly returns! Invite 5 friends to unlock VIP Level 3 bonus. Transfer funds directly to UPI ID: royalwealth@ybl or support WhatsApp +91 9876543210.",
-        risk_score=90,
-        risk_level="HIGH",
-        indicators=[
-            {"name": "Guaranteed Unrealistic ROI Claim", "score": 25, "reason": "Claims 35% weekly return, mathematically characteristic of Ponzi fraud."},
-            {"name": "Multi-Level Referral Lure (MLM)", "score": 20, "reason": "Encourages member recruitment chain to sustain payout scheme."},
-            {"name": "Direct Unregulated UPI Ingestion", "score": 25, "reason": "Directs investment capital to personal VPA royalwealth@ybl."},
-            {"name": "Shared Phone Number (Linked to Case 1)", "score": 20, "reason": "Reuses phone number 9876543210 identified in electricity scam!"}
-        ],
-        recommendation="High risk Ponzi / illegal deposit scheme. Warn public and freeze receiving UPI VPA.",
-        extracted_entities={
-            "phone": ["9876543210"],
-            "upi": ["royalwealth@ybl", "jvvnlpower@okaxis"],
-            "domain": ["royalgrow-vip.top"]
-        }
-    )
+    for item in SYNTHETIC_DATASET:
+        src = item["source_type"]
+        content = item["content"]
 
-    # Seed Case 3: Fake Instant Loan APK
-    save_case(
-        source_type="Android APK",
-        full_input="App: RupeeQuick Express Loan (com.fastcash.rupeeloan). Discovered downloading from suspicious link: http://download.rupeeloan.cc/app.apk. Requests invasive permissions.",
-        risk_score=95,
-        risk_level="HIGH",
-        indicators=[
-            {"name": "Excessive Sensitive Permissions", "score": 30, "reason": "Requests READ_CONTACTS, READ_SMS, and CAMERA for a simple loan calculator."},
-            {"name": "Predatory Loan Extortion Profile", "score": 25, "reason": "Permissions indicate contact harvesting for harassment & extortion."},
-            {"name": "Non-PlayStore Hosting (.cc TLD)", "score": 20, "reason": "Distributed via unverified domain download.rupeeloan.cc."},
-            {"name": "Embedded Suspicious Backend C2 IP", "score": 20, "reason": "Hardcoded communications to offshore server 194.26.29.112."}
-        ],
-        recommendation="CRITICAL THREAT: Immediately uninstall. Do not grant permissions. Block APK SHA-256 hash across police registries.",
-        extracted_entities={
-            "phone": ["9123456789"],
-            "domain": ["download.rupeeloan.cc"],
-            "upi": ["fastcashloan@paytm"]
-        }
-    )
+        if "Message" in src:
+            res = analyze_message(content)
+        elif "URL" in src:
+            score, ind = analyze_url_heuristics(content)
+            res = {
+                "risk_score": score,
+                "risk_level": "HIGH" if score >= 50 else ("MEDIUM" if score >= 25 else "LOW"),
+                "indicators": ind,
+                "recommendation": "Phishing domain detected." if score >= 50 else "Standard domain.",
+                "extracted_entities": item.get("entities", {})
+            }
+        else:
+            res = analyze_website_content(content)
 
-    # Seed Case 4: Genuine Bank Transaction Alert (Low Risk Baseline)
-    save_case(
-        source_type="Message (SMS)",
-        full_input="Dear Customer, INR 2,500.00 debited from your HDFC Bank A/c ending 4589 on 22-NOV-26 to SWIGGY. Available Bal: INR 34,120.00. If not done by you, call 18002026161.",
-        risk_score=10,
-        risk_level="LOW",
-        indicators=[
-            {"name": "Standard Banking Transaction Format", "score": 5, "reason": "Matches official Reserve Bank of India mandated transaction debit template."},
-            {"name": "Official Toll-Free Number", "score": 5, "reason": "Uses verified HDFC Bank customer care toll-free helpline 18002026161."}
-        ],
-        recommendation="Legitimate transaction alert. No suspicious markers or phishing links detected.",
-        extracted_entities={
-            "phone": ["18002026161"]
-        }
-    )
+        # Merge pre-defined entities
+        all_entities = res.get("extracted_entities", {})
+        for k, v in item.get("entities", {}).items():
+            if k not in all_entities:
+                all_entities[k] = []
+            all_entities[k].extend(v)
+
+        save_case(
+            source_type=src,
+            full_input=content,
+            risk_score=res["risk_score"],
+            risk_level=res["risk_level"],
+            indicators=res["indicators"],
+            recommendation=res["recommendation"],
+            extracted_entities=all_entities,
+            title=item.get("label", ""),
+            is_synthetic=True
+        )
+
+def get_settings() -> Dict[str, str]:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT key, value FROM system_settings;")
+    settings = {r["key"]: r["value"] for r in cursor.fetchall()}
+    conn.close()
+    return settings
+
+def update_settings(new_settings: Dict[str, str]):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    for k, v in new_settings.items():
+        cursor.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES (?, ?);", (k, str(v)))
+    conn.commit()
+    conn.close()
