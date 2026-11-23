@@ -12,7 +12,8 @@ import {
   Flame,
   FileText,
   Bot,
-  Settings
+  Settings,
+  Inbox
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
   { path: '/apks', label: 'APK Analyzer', icon: Smartphone },
   { path: '/graph', label: 'Intelligence Graph', icon: Network },
   { path: '/cases', label: 'Case Management', icon: FolderGit2 },
+  { path: '/citizen-submissions', label: 'Citizen Submissions', icon: Inbox },
   { path: '/heat-list', label: 'Threat Heat-List', icon: Flame },
   { path: '/reports', label: 'Investigation Reports', icon: FileText },
   { path: '/assistant', label: 'AI Investigator', icon: Bot },

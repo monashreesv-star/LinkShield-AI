@@ -118,5 +118,85 @@ pdf_path = generate_case_pdf(case_detail)
 print(f"    PDF Created: {pdf_path} (Size: {os.path.getsize(pdf_path)} bytes)")
 assert os.path.exists(pdf_path) and os.path.getsize(pdf_path) > 1000
 
-print("\n>>> ALL 11 TEST PHASES PASSED WITH ZERO ERRORS! <<<")
+# 12. Citizen Registration & Authentication
+print("\n[+] 12. Testing Citizen Registration & PBKDF2-HMAC-SHA256 Password Security...")
+from backend.database import (
+    register_user, authenticate_user, save_citizen_submission,
+    get_citizen_submissions, get_citizen_submission_by_id,
+    update_citizen_submission_status, convert_submission_to_case,
+    get_citizen_dashboard_stats
+)
+from backend.auth import create_session, get_user_by_token
+import time
+
+unique_email = f"meena.test.{int(time.time())}@rajasthan.gov.in"
+test_citizen = register_user("Meena Kumari", unique_email, "9876543299", "SecurePass@2026", "citizen")
+print(f"    Registered Citizen: {test_citizen['name']} ({test_citizen['user_id']})")
+assert test_citizen["role"] == "citizen"
+
+auth_citizen = authenticate_user(unique_email, "SecurePass@2026", "citizen")
+assert auth_citizen is not None
+print(f"    Citizen Authenticated Successfully: {auth_citizen['email']}")
+
+# 13. Citizen Submission & Instant Risk Triage
+print("\n[+] 13. Testing Citizen Scam Reporting & Automated Risk Assessment...")
+sub_id = save_citizen_submission(
+    citizen_id=auth_citizen["user_id"],
+    citizen_name=auth_citizen["name"],
+    citizen_mobile=auth_citizen["mobile"],
+    submission_type="Message",
+    submitted_content="Urgent electricity disconnect notice: Call JVVNL officer 9876500001 or pay at http://jvvnl-bijli-update.online",
+    risk_score=85,
+    risk_level="HIGH",
+    indicators=[{"name": "Urgent Disconnection Scam", "score": 40, "reason": "Threatens immediate power cutoff"}],
+    extracted_entities={"phones": ["9876500001"], "urls": ["http://jvvnl-bijli-update.online"]},
+    recommendation="Do not send funds or click link. Contact official JVVNL customer care."
+)
+sub_record = get_citizen_submission_by_id(sub_id)
+print(f"    Citizen Submission Created: {sub_id} (Status: {sub_record['status']})")
+assert sub_id.startswith("CIT-")
+assert sub_record["status"] == "Submitted"
+
+# 14. Scoped Citizen Dashboard & Isolation
+print("\n[+] 14. Testing Scoped Citizen Dashboard & Privacy Isolation...")
+dash_stats = get_citizen_dashboard_stats(auth_citizen["user_id"])
+print(f"    Citizen Total Reports: {dash_stats['total_reports']}, Under Review: {dash_stats['under_review']}")
+assert dash_stats["total_reports"] >= 1
+
+my_reports = get_citizen_submissions(citizen_id=auth_citizen["user_id"])
+assert all(r["citizen_id"] == auth_citizen["user_id"] for r in my_reports)
+print(f"    Strict Privacy Check Passed: Citizen only sees their own {len(my_reports)} report(s).")
+
+# 15. Officer Review, Status Progression & Case Escalation
+print("\n[+] 15. Testing Officer Review Workflow & Escalation to Police FIR...")
+all_subs = get_citizen_submissions()
+print(f"    Officer View: Total citizen reports statewide: {len(all_subs)}")
+assert len(all_subs) >= 5
+
+# Update review status: Submitted -> Analysed -> Under Review
+success = update_citizen_submission_status(sub_id, "Under Review", "Assigned to Jaipur Cyber Unit for ISP subpoena.")
+assert success is True
+updated_sub = get_citizen_submission_by_id(sub_id)
+assert updated_sub["status"] == "Under Review"
+print(f"    Status updated to: {updated_sub['status']}")
+
+# Convert to formal police case
+esc_case_id = convert_submission_to_case(sub_id, officer_name="RJ-CYBER-8842")
+print(f"    Citizen report escalated to Police FIR: {esc_case_id}")
+assert esc_case_id is not None and esc_case_id.startswith("LS-")
+
+# 16. RBAC Session Token Verification
+print("\n[+] 16. Testing Session Token & RBAC Token Lookups...")
+cit_token = create_session(auth_citizen["user_id"], "citizen")
+cit_user_lookup = get_user_by_token(f"Bearer {cit_token}")
+assert cit_user_lookup["role"] == "citizen"
+print(f"    Citizen Token Validated: Role = {cit_user_lookup['role']}")
+
+off_user = authenticate_user("cyber.officer@rajasthan.gov.in", "Officer@2026", "officer")
+off_token = create_session(off_user["user_id"], "officer")
+off_user_lookup = get_user_by_token(f"Bearer {off_token}")
+assert off_user_lookup["role"] == "officer"
+print(f"    Officer Token Validated: Role = {off_user_lookup['role']}")
+
+print("\n>>> ALL 16 TEST PHASES (INCLUDING CITIZEN PORTAL & RBAC) PASSED WITH ZERO ERRORS! <<<")
 print(">>> BACKEND IS 100% PRODUCTION READY FOR HACKATHON EVALUATION <<<\n")

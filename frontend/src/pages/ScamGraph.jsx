@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Network, Search, Filter, RotateCcw, AlertTriangle, Layers, Info, ShieldAlert, Sparkles, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { Network as VisNetwork, DataSet as VisDataSet } from 'vis-network/standalone/esm/vis-network.mjs';
 
 export default function ScamGraph() {
   const containerRef = useRef(null);
@@ -9,10 +10,9 @@ export default function ScamGraph() {
   const [selectedNode, setSelectedNode] = useState(null);
   const [networkInstance, setNetworkInstance] = useState(null);
   const [filterType, setFilterType] = useState('ALL'); // ALL, case, upi, phone, domain
-  const [visLoaded, setVisLoaded] = useState(false);
 
   useEffect(() => {
-    // 1. Fetch backend relationship graph
+    // Fetch backend relationship graph
     fetch('/api/intel/graph')
       .then((res) => res.json())
       .then((data) => {
@@ -23,34 +23,10 @@ export default function ScamGraph() {
         console.error('Failed to load graph:', err);
         setLoading(false);
       });
-
-    // 2. Ensure Vis Network script is available
-    if (window.vis && window.vis.Network) {
-      setVisLoaded(true);
-    } else {
-      const existingScript = document.querySelector('script[src*="vis-network"]');
-      if (!existingScript) {
-        const script = document.createElement('script');
-        script.src = 'https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js';
-        script.async = true;
-        script.onload = () => setVisLoaded(true);
-        document.body.appendChild(script);
-      } else {
-        existingScript.addEventListener('load', () => setVisLoaded(true));
-        // Poll for a short moment in case it was already loaded
-        const timer = setInterval(() => {
-          if (window.vis && window.vis.Network) {
-            setVisLoaded(true);
-            clearInterval(timer);
-          }
-        }, 150);
-        return () => clearInterval(timer);
-      }
-    }
   }, []);
 
   useEffect(() => {
-    if (!loading && containerRef.current && window.vis && graphData.nodes && graphData.nodes.length > 0) {
+    if (!loading && containerRef.current && graphData.nodes && graphData.nodes.length > 0) {
       try {
         const filteredNodes = graphData.nodes.filter((n) => {
           if (filterType === 'ALL') return true;
@@ -122,11 +98,11 @@ export default function ScamGraph() {
           }
         };
 
-        const network = new window.vis.Network(
+        const network = new VisNetwork(
           containerRef.current,
           {
-            nodes: new window.vis.DataSet(visNodes),
-            edges: new window.vis.DataSet(visEdges)
+            nodes: new VisDataSet(visNodes),
+            edges: new VisDataSet(visEdges)
           },
           options
         );
@@ -162,7 +138,7 @@ export default function ScamGraph() {
         console.error('Error initializing vis network:', err);
       }
     }
-  }, [loading, visLoaded, graphData, filterType]);
+  }, [loading, graphData, filterType]);
 
   const handleReset = () => {
     if (networkInstance) {

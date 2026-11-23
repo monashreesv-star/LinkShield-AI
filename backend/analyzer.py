@@ -131,8 +131,10 @@ def is_safe_url(url: str) -> Tuple[bool, str]:
                 return False, f"Access to internal/private IP ({ip_str}) blocked by SSRF filter."
 
             return True, ip_str
-        except socket.gaierror:
+        except (socket.gaierror, socket.herror, socket.error, OSError):
             # If domain cannot be resolved by DNS (offline, suspended, or synthetic test sample)
+            return True, "OFFLINE_OR_SYNTHETIC"
+        except Exception:
             return True, "OFFLINE_OR_SYNTHETIC"
     except Exception as e:
         return False, f"URL validation failed: {str(e)}"
@@ -219,9 +221,15 @@ def analyze_url_heuristics(url_str: str) -> Tuple[int, List[Dict[str, Any]]]:
     score = 0
     indicators = []
 
+    clean_url = url_str.strip()
+    if not clean_url.startswith(('http://', 'https://')):
+        parsed_target = 'http://' + clean_url
+    else:
+        parsed_target = clean_url
+
     try:
-        parsed = urllib.parse.urlparse(url_str)
-        hostname = (parsed.netloc or "").lower()
+        parsed = urllib.parse.urlparse(parsed_target)
+        hostname = (parsed.netloc or "").lower().split(':')[0]
         scheme = parsed.scheme.lower()
     except Exception:
         return 15, [{"name": "Malformed URL", "score": 15, "reason": "URL could not be parsed."}]

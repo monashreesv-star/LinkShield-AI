@@ -41,9 +41,15 @@ export default function UrlScanner() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url })
       });
-      const data = await res.json();
+      let data;
+      try {
+        data = await res.json();
+      } catch (jsonErr) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(txt || `Server error (${res.status})`);
+      }
       if (!res.ok) {
-        throw new Error(data.detail || 'URL Scan failed');
+        throw new Error(data?.detail || 'URL Scan failed');
       }
       setResult(data);
     } catch (err) {
