@@ -28,7 +28,12 @@ import OfficerCitizenSubmissions from './pages/OfficerCitizenSubmissions';
 
 // Citizen Pages
 import CitizenDashboard from './pages/citizen/CitizenDashboard';
-import CitizenReportForm from './pages/citizen/CitizenReportForm';
+import CitizenReportMessage from './pages/citizen/CitizenReportMessage';
+import CitizenReportUrl from './pages/citizen/CitizenReportUrl';
+import CitizenReportWebsite from './pages/citizen/CitizenReportWebsite';
+import CitizenUploadEvidence from './pages/citizen/CitizenUploadEvidence';
+import CitizenAiAssistant from './pages/citizen/CitizenAiAssistant';
+import CitizenThreatChecker from './pages/citizen/CitizenThreatChecker';
 import CitizenMyReports from './pages/citizen/CitizenMyReports';
 import CitizenSafetyGuide from './pages/citizen/CitizenSafetyGuide';
 
@@ -52,10 +57,12 @@ function ProtectedLayout() {
           <main className="flex-1 p-6 overflow-y-auto">
             <Routes>
               <Route path="/citizen" element={<CitizenDashboard />} />
-              <Route path="/citizen/report-message" element={<CitizenReportForm defaultType="Message" />} />
-              <Route path="/citizen/report-url" element={<CitizenReportForm defaultType="URL" />} />
-              <Route path="/citizen/report-website" element={<CitizenReportForm defaultType="Website" />} />
-              <Route path="/citizen/upload-evidence" element={<CitizenReportForm defaultType="Evidence" />} />
+              <Route path="/citizen/assistant" element={<CitizenAiAssistant />} />
+              <Route path="/citizen/check-threat" element={<CitizenThreatChecker />} />
+              <Route path="/citizen/report-message" element={<CitizenReportMessage />} />
+              <Route path="/citizen/report-url" element={<CitizenReportUrl />} />
+              <Route path="/citizen/report-website" element={<CitizenReportWebsite />} />
+              <Route path="/citizen/upload-evidence" element={<CitizenUploadEvidence />} />
               <Route path="/citizen/my-reports" element={<CitizenMyReports />} />
               <Route path="/citizen/safety-guide" element={<CitizenSafetyGuide />} />
               <Route path="*" element={<Navigate to="/citizen" replace />} />

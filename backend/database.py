@@ -1034,3 +1034,74 @@ def get_citizen_dashboard_stats(citizen_id: str) -> Dict[str, Any]:
         "high_threats_flagged": high_threats,
         "recent_submissions": recent
     }
+
+def check_threat_registry(query_term: str) -> Dict[str, Any]:
+    """Allows citizens to verify a phone number, UPI ID, or domain against Rajasthan threat database."""
+    clean = query_term.strip().lower()
+    if not clean:
+        return {"status": "EMPTY", "is_flagged": False, "message": "Please enter a phone number, UPI ID, or domain."}
+
+    # Remove protocol if URL
+    clean_val = clean.replace("https://", "").replace("http://", "").split("/")[0]
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Search in identifiers table
+    cursor.execute("""
+    SELECT entity_type, entity_value, COUNT(DISTINCT case_id) as case_count, MAX(created_at) as last_seen
+    FROM identifiers
+    WHERE entity_value LIKE ?
+    GROUP BY entity_type, entity_value;
+    """, (f"%{clean_val}%",))
+    rows = cursor.fetchall()
+
+    # Also search in citizen_submissions
+    cursor.execute("""
+    SELECT COUNT(*) as sub_count, MAX(created_at) as last_sub
+    FROM citizen_submissions
+    WHERE submitted_content LIKE ?;
+    """, (f"%{clean_val}%",))
+    sub_row = cursor.fetchone()
+    sub_count = sub_row[0] if sub_row else 0
+
+    conn.close()
+
+    total_reports = 0
+    matched_value = clean_val
+    entity_type = "IDENTIFIER"
+
+    if rows:
+        row = dict(rows[0])
+        total_reports = row["case_count"] + sub_count
+        matched_value = row["entity_value"]
+        entity_type = row["entity_type"].upper()
+    else:
+        total_reports = sub_count
+
+    if total_reports > 0:
+        risk_level = "HIGH" if total_reports >= 2 else "MEDIUM"
+        return {
+            "query": clean_val,
+            "status": "FLAGGED",
+            "is_flagged": True,
+            "matched_value": matched_value,
+            "entity_type": entity_type,
+            "total_incidents": total_reports,
+            "risk_level": risk_level,
+            "warning": f"CAUTION: This {entity_type.lower()} has been flagged in {total_reports} cyber fraud report(s) in Rajasthan.",
+            "recommendation": "DO NOT transfer money, share OTPs, or click links from this sender. Report any suspicious contact immediately."
+        }
+    else:
+        return {
+            "query": clean_val,
+            "status": "CLEAN",
+            "is_flagged": False,
+            "matched_value": clean_val,
+            "entity_type": "UNREGISTERED",
+            "total_incidents": 0,
+            "risk_level": "LOW",
+            "warning": "No prior cyber complaints on record in Rajasthan registry.",
+            "recommendation": "No previous complaints found. However, fraudsters frequently generate new numbers and UPI accounts. Always verify through official channels before paying."
+        }
+

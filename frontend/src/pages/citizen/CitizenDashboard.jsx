@@ -140,6 +140,61 @@ export default function CitizenDashboard() {
         </div>
       </div>
 
+      {/* AI Assistant & Quick Threat Search Spotlight */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* AI Cyber Saathi */}
+        <Link
+          to="/citizen/assistant"
+          className="bg-gradient-to-br from-indigo-950 via-slate-900 to-blue-950 border border-indigo-500/30 rounded-3xl p-6 text-white shadow-lg hover:border-indigo-400/50 transition group flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase bg-indigo-900/80 text-indigo-300 border border-indigo-700/80">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span>Citizen AI Assistant</span>
+              </span>
+              <span className="text-[10px] text-indigo-300 font-bold">24x7 Active</span>
+            </div>
+            <h3 className="text-lg font-black text-white group-hover:text-indigo-300 transition">
+              AI Cyber Saathi — Doubt Clarifier
+            </h3>
+            <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+              Confused by a video call claiming 'Digital Arrest', a 9:30 PM electricity cutoff SMS, or an OTP dilemma? Ask plain questions to get instant, verified guidance and emergency steps.
+            </p>
+          </div>
+          <div className="mt-4 pt-3 border-t border-indigo-800/60 flex items-center justify-between text-xs font-bold text-indigo-400">
+            <span>Ask questions now</span>
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition" />
+          </div>
+        </Link>
+
+        {/* Quick Registry Checker */}
+        <Link
+          to="/citizen/check-threat"
+          className="bg-gradient-to-br from-cyan-950 via-slate-900 to-slate-900 border border-cyan-500/30 rounded-3xl p-6 text-white shadow-lg hover:border-cyan-400/50 transition group flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase bg-cyan-950/80 text-cyan-400 border border-cyan-700/80">
+                <ShieldAlert className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Pre-Transaction Verification</span>
+              </span>
+              <span className="text-[10px] text-cyan-400 font-bold">Statewide Database</span>
+            </div>
+            <h3 className="text-lg font-black text-white group-hover:text-cyan-300 transition">
+              Check Scam Number & Mule UPI VPA
+            </h3>
+            <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+              Before paying or replying, verify any mobile number, UPI ID, or website domain against Rajasthan Police's verified threat database and citizen complaints heat-list.
+            </p>
+          </div>
+          <div className="mt-4 pt-3 border-t border-cyan-800/60 flex items-center justify-between text-xs font-bold text-cyan-400">
+            <span>Verify an account or number</span>
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition" />
+          </div>
+        </Link>
+      </div>
+
       {/* Quick Reporting Actions Grid */}
       <div>
         <h2 className="text-sm font-black uppercase tracking-wider text-slate-700 mb-3">

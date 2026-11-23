@@ -17,7 +17,7 @@ from backend.database import (
     register_user, authenticate_user, save_citizen_submission,
     get_citizen_submissions, get_citizen_submission_by_id,
     update_citizen_submission_status, convert_submission_to_case,
-    get_citizen_dashboard_stats
+    get_citizen_dashboard_stats, check_threat_registry
 )
 from backend.auth import (
     create_session, get_user_by_token, delete_session, log_audit
@@ -27,7 +27,7 @@ from backend.analyzer import (
     analyze_website_content, analyze_apk_metadata,
     analyze_apk_bytes, extract_identifiers, safe_fetch_url
 )
-from backend.assistant import answer_investigation_query
+from backend.assistant import answer_investigation_query, answer_citizen_query
 from backend.pdf_generator import generate_case_pdf
 
 app = FastAPI(
@@ -121,6 +121,9 @@ class CitizenReportRequest(BaseModel):
     content: str
     citizen_name: Optional[str] = ""
     citizen_mobile: Optional[str] = ""
+
+class CitizenQueryRequest(BaseModel):
+    query: str
 
 class UpdateStatusRequest(BaseModel):
     status: str
@@ -351,6 +354,16 @@ def api_citizen_get_single_report(submission_id: str, user: Dict[str, Any] = Dep
     if not sub:
         raise HTTPException(status_code=404, detail="Report not found or access unauthorized.")
     return sub
+
+@app.post("/api/citizen/assistant")
+def api_citizen_assistant(req: CitizenQueryRequest, user: Dict[str, Any] = Depends(require_current_user)):
+    if not req.query.strip():
+        raise HTTPException(status_code=400, detail="Query cannot be empty.")
+    return answer_citizen_query(req.query, citizen_name=user.get("name", "Citizen"))
+
+@app.get("/api/citizen/check-threat")
+def api_citizen_check_threat(q: str = Query(...), user: Dict[str, Any] = Depends(require_current_user)):
+    return check_threat_registry(q)
 
 # -------------------------------------------------------------
 # OFFICER REVIEW ENDPOINTS (CITIZEN SUBMISSIONS)

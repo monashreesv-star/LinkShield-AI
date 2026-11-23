@@ -392,3 +392,209 @@ def answer_investigation_query(query: str) -> Dict[str, Any]:
     )
     conn.close()
     return {"answer": response_text, "references": ["RAJASTHAN-POLICE-COMMAND"], "confidence": "SYSTEM KNOWLEDGE"}
+
+def answer_citizen_query(query: str, citizen_name: str = "Citizen") -> Dict[str, Any]:
+    """
+    Dedicated AI Cyber Saathi (Citizen Assistant) designed for citizens and fraud victims.
+    Provides empathetic, clear, actionable doubt clarifications in plain language without jargon,
+    debunking scam tactics and guiding immediate victim relief.
+    """
+    q_clean = query.strip()
+    q_lower = q_clean.lower()
+
+    name_salutation = f"Hello {citizen_name}" if citizen_name and citizen_name != "Citizen" else "Namaste Citizen"
+
+    # 1. DIGITAL ARREST / POLICE VIDEO CALL EXTORTION
+    if any(k in q_lower for k in ["digital arrest", "skype", "cbi call", "police video call", "customs parcel arrest", "arrest warrant", "money laundering case"]):
+        return {
+            "answer": (
+                f"### 🚨 IMPORTANT ADVISORY: 'Digital Arrest' is 100% FAKE!\n\n"
+                f"{name_salutation}, please stay calm. **You are NOT in any legal danger.**\n\n"
+                f"**The Truth:**\n"
+                f"• **There is NO law or concept called 'Digital Arrest' in India.**\n"
+                f"• Legitimate police officers (Rajasthan Police, CBI, ED, Narcotics Bureau) **NEVER** interrogate citizens over WhatsApp, Skype, or video calls.\n"
+                f"• Police will **NEVER** ask you to transfer funds to 'RBI verification accounts' or 'safe government accounts' for clearance.\n\n"
+                f"**What You Should Do Right Now:**\n"
+                f"1. **Disconnect the call immediately.** Do not engage further.\n"
+                f"2. **Block the caller number.**\n"
+                f"3. **Do not send any money or OTPs.**\n"
+                f"4. If you already transferred money, immediately dial **1930** (National Cyber Helpline) within the 'Golden Hour' to freeze the transfer.\n"
+                f"5. Report the scammer's phone number here on the LinkShield Citizen Portal so Rajasthan Police can block their SIM."
+            ),
+            "topic": "Digital Arrest Hoax",
+            "risk_verdict": "CRITICAL SCAM",
+            "emergency_action": "Call 1930 if money was sent; otherwise disconnect and block.",
+            "helpful_links": [
+                {"title": "National Cyber Crime Portal", "url": "https://cybercrime.gov.in"},
+                {"title": "Report Scammer Number on LinkShield", "url": "/citizen/report-message"}
+            ]
+        }
+
+    # 2. ELECTRICITY CUTOFF SCAM (JVVNL / DISCOM)
+    if any(k in q_lower for k in ["electricity", "bijli", "cutoff", "cut off", "disconnect", "jvvnl", "avvnl", "jdvvnl", "9:30 pm", "power bill"]):
+        return {
+            "answer": (
+                f"### ⚠️ FAKE NOTICE: Electricity Disconnection Scam\n\n"
+                f"{name_salutation}, the message claiming your electricity will be disconnected tonight is a **widespread cyber fraud campaign** targeting citizens across Rajasthan.\n\n"
+                f"**How to Spot the Fraud:**\n"
+                f"• **10-Digit Phone Numbers:** Official power discoms (JVVNL, AVVNL, JdVVNL) send notifications strictly via registered alphanumeric headers like `JVVNL-GOV`, **NEVER from a personal 10-digit mobile number** like `+91 98765...`.\n"
+                f"• **Fake Short Links:** Scammers send links like `jvvnl-bijli-update.online` or `bijli-pay.cc`. Real government discoms only operate on `.gov.in` or `.rajasthan.gov.in`.\n"
+                f"• **Panic Deadline (Tonight at 9:30 PM):** This artificial urgency is designed to make you pay without thinking.\n\n"
+                f"**Safe Steps to Verify Your Bill:**\n"
+                f"1. **Do not call the number** in the message.\n"
+                f"2. Check your genuine bill status directly on the official Rajasthan Energy Portal: `https://energy.rajasthan.gov.in` or your BijliMitra mobile app.\n"
+                f"3. Report this fake SMS in our **Report Message** section to help police blacklist the scammer's number."
+            ),
+            "topic": "Electricity Bill Fraud",
+            "risk_verdict": "HIGH RISK FAKE MESSAGE",
+            "emergency_action": "Verify bill on official portal; do not call the personal phone number.",
+            "helpful_links": [
+                {"title": "Official Rajasthan Energy Portal", "url": "https://energy.rajasthan.gov.in"},
+                {"title": "Report Fake Message", "url": "/citizen/report-message"}
+            ]
+        }
+
+    # 3. TRANSFERRED MONEY / LOST MONEY / SHARED OTP (GOLDEN HOUR)
+    if any(k in q_lower for k in ["lost money", "money debited", "transferred money", "shared otp", "fraud transaction", "sent money to scammer", "scammed", "deducted"]):
+        return {
+            "answer": (
+                f"### 🚨 EMERGENCY ACTION: Financial Cyber Fraud (Golden Hour Protocol)\n\n"
+                f"{name_salutation}, if money has just been debited from your account or you accidentally shared an OTP, act immediately:\n\n"
+                f"**STEP 1: Call 1930 Right Now (Toll-Free Cyber Helpline)**\n"
+                f"• The first **2 hours** after an unauthorized transaction are called the **Golden Hour**.\n"
+                f"• Calling **1930** immediately connects you to the Citizen Financial Cyber Fraud Reporting System (CFCFRMS). Rajasthan Cyber Police can instruct NPCI and the receiving bank to **put a lien (freeze) on the scammer's bank/UPI account** before they withdraw your cash.\n\n"
+                f"**STEP 2: Have These Details Ready When You Call 1930:**\n"
+                f"• Your Bank Name and Account Number.\n"
+                f"• Exact Time and Amount debited.\n"
+                f"• UPI Transaction Reference Number (UTR / Ref ID from your SMS).\n"
+                f"• Beneficiary UPI ID or Account Number where money went.\n\n"
+                f"**STEP 3: Freeze Your Cards & NetBanking**\n"
+                f"• Open your official bank mobile app and disable UPI transactions or temporarily lock your debit/credit card.\n\n"
+                f"**STEP 4: Upload Evidence on LinkShield**\n"
+                f"• Upload screenshots of your debit SMS and chat logs in our **Upload Evidence** section so an investigating officer can examine it."
+            ),
+            "topic": "Golden Hour Financial Relief",
+            "risk_verdict": "URGENT ACTION REQUIRED",
+            "emergency_action": "Dial 1930 immediately with your transaction reference number.",
+            "helpful_links": [
+                {"title": "Dial 1930 Helpline", "url": "tel:1930"},
+                {"title": "National Cyber Crime Reporting", "url": "https://cybercrime.gov.in"},
+                {"title": "Upload Evidence Screenshot", "url": "/citizen/upload-evidence"}
+            ]
+        }
+
+    # 4. PART-TIME TASK SCAM / YOUTUBE LIKES / TELEGRAM INVESTMENT
+    if any(k in q_lower for k in ["part-time", "like youtube", "telegram", "task scam", "earn daily", "rate hotels", "review maps", "vip investment"]):
+        return {
+            "answer": (
+                f"### ⚠️ FRAUD ALERT: Part-Time Job / Task Investment Scam\n\n"
+                f"{name_salutation}, offers promising daily income for liking YouTube videos, reviewing hotels, or completing Telegram tasks are **100% fraudulent**.\n\n"
+                f"**How the Trap Works:**\n"
+                f"1. **Initial Bait:** Scammers pay you small amounts (Rs 150 to Rs 500) for simple tasks to earn your trust.\n"
+                f"2. **The Trap:** They invite you to a VIP Telegram group and demand 'pre-paid deposit fees' (Rs 5,000, Rs 50,000, or more) promising 30%–50% profits on a fake dashboard.\n"
+                f"3. **The Freeze:** When you try to withdraw your earnings, they demand additional 'tax fees' or 'system unlock fees'. You will never get your money back.\n\n"
+                f"**Recommended Action:**\n"
+                f"• **Stop communicating immediately.** Do not deposit any money.\n"
+                f"• Leave the Telegram group.\n"
+                f"• Report the promoter's phone number and UPI ID on LinkShield."
+            ),
+            "topic": "Part-Time Task Scam",
+            "risk_verdict": "HIGH RISK FRAUD",
+            "emergency_action": "Do not pay any deposit; exit the group immediately.",
+            "helpful_links": [
+                {"title": "Report Scam Message / Offer", "url": "/citizen/report-message"}
+            ]
+        }
+
+    # 5. FAKE INSTANT LOAN APKS (HARASSMENT / CONTACTS EXTORTION)
+    if any(k in q_lower for k in ["loan app", "instant loan", "fast cash", "rupee loan", "harassment", "apk loan", "contacts", "gallery"]):
+        return {
+            "answer": (
+                f"### 🚨 CRITICAL WARNING: Predatory Loan App & Blackmail Scam\n\n"
+                f"{name_salutation}, predatory instant loan apps downloaded from APK links or unverified websites are designed for extortion.\n\n"
+                f"**How They Trap Victims:**\n"
+                f"• During installation, they ask for permissions to access **Contacts, Photos/Gallery, SMS, and Camera**.\n"
+                f"• They give a tiny loan (e.g. Rs 3,000) and after 6 days demand Rs 8,000.\n"
+                f"• If you delay, they threaten to send morphed photographs and abusive messages to everyone in your contact list.\n\n"
+                f"**What You Must Do:**\n"
+                f"1. **Uninstall the app immediately.**\n"
+                f"2. **Revoke permissions** in Android Settings $\rightarrow$ Apps $\rightarrow$ Permissions.\n"
+                f"3. **Inform your family and close contacts** not to believe morphed photos or abusive calls.\n"
+                f"4. **Never pay extortion demands.** Paying money only leads to repeated demands.\n"
+                f"5. Report the app name and harassing phone numbers to Rajasthan Police on LinkShield."
+            ),
+            "topic": "Predatory Loan Apps",
+            "risk_verdict": "HIGH EXTORTION RISK",
+            "emergency_action": "Uninstall the app, inform contacts, and file a police complaint.",
+            "helpful_links": [
+                {"title": "Report Fake Loan App / Scheme", "url": "/citizen/report-website"}
+            ]
+        }
+
+    # 6. E-CHALLAN / TRAFFIC CHALLAN SCAM
+    if any(k in q_lower for k in ["challan", "traffic", "parivahan", "fine", "vehicle fine"]):
+        return {
+            "answer": (
+                f"### ⚠️ BEWARE: Fake Traffic e-Challan APK Scam\n\n"
+                f"{name_salutation}, scammers in Rajasthan are broadcasting messages claiming you have an unpaid traffic challan and directing you to install an APK file.\n\n"
+                f"**The Scam:**\n"
+                f"• The link downloads a malicious Android file like `VahanChallan.apk` which steals OTPs and reads your bank SMS.\n\n"
+                f"**Safe Verification:**\n"
+                f"• Genuine traffic police challans can **ONLY** be verified on the official Ministry of Road Transport portal: `https://echallan.parivahan.gov.in`.\n"
+                f"• Never download any `.apk` file received on WhatsApp or SMS."
+            ),
+            "topic": "e-Challan Phishing",
+            "risk_verdict": "MALWARE RISK",
+            "emergency_action": "Verify only on echallan.parivahan.gov.in; delete the APK.",
+            "helpful_links": [
+                {"title": "Official Parivahan Challan Portal", "url": "https://echallan.parivahan.gov.in"},
+                {"title": "Scan Suspicious Link", "url": "/citizen/report-url"}
+            ]
+        }
+
+    # 7. COLOR PREDICTION & ILLEGAL BETTING (DAMAN, BDG WIN)
+    if any(k in q_lower for k in ["color prediction", "colour prediction", "betting", "daman", "bdg", "aviator", "roulette", "double money"]):
+        return {
+            "answer": (
+                f"### 🚨 ILLEGAL GAMBLING PLATFORM: Color Prediction Traps\n\n"
+                f"{name_salutation}, platforms like Daman Games, BDG Win, and 91 Club are **illegal online betting operations** violating the Rajasthan Public Gambling Ordinance and Indian cyber laws.\n\n"
+                f"**The Algorithm is Rigged:**\n"
+                f"• In the beginning, the system allows you to win small amounts to entice larger deposits.\n"
+                f"• Once you deposit larger sums (Rs 10,000+), the algorithm ensures you lose, or your account withdrawal is permanently frozen.\n"
+                f"• The UPI accounts receiving deposits are stolen mule accounts that get frozen during police investigations, putting you at risk.\n\n"
+                f"**Recommendation:** Stop playing, do not recharge your wallet, and report their payment accounts on LinkShield."
+            ),
+            "topic": "Illegal Betting Traps",
+            "risk_verdict": "ILLEGAL & HIGH FINANCIAL RISK",
+            "emergency_action": "Cease all transactions; withdraw any remaining wallet balance if allowed.",
+            "helpful_links": [
+                {"title": "Report Fraudulent Website / Betting", "url": "/citizen/report-website"}
+            ]
+        }
+
+    # 8. GENERAL ASSISTANCE & DOUBT CLARIFIER FALLBACK
+    return {
+        "answer": (
+            f"### 🛡️ AI Cyber Saathi — Citizen Assistance Desk\n\n"
+            f"{name_salutation}, I am here to help you detect scams, clarify your doubts, and protect your digital life across Rajasthan.\n\n"
+            f"**Here are quick questions you can ask me:**\n"
+            f"• *'I got an SMS that my electricity bill is unpaid and power will be cut off tonight'* — (JVVNL scam breakdown)\n"
+            f"• *'Someone is calling me on Skype claiming to be police / CBI putting me under digital arrest'* — (Digital Arrest hoax)\n"
+            f"• *'I accidentally shared my OTP or transferred money, how can I save it?'* — (Golden Hour 1930 procedure)\n"
+            f"• *'Someone offered me a part-time job liking YouTube videos'* — (Telegram task fraud)\n"
+            f"• *'Is an instant loan app asking for contacts access safe?'* — (Predatory loan app risks)\n"
+            f"• *'How do I check if a bank SMS or website link is genuine?'* — (Legitimacy tips)\n\n"
+            f"**Need Emergency Assistance?**\n"
+            f"If you have lost money to a scammer within the last 2 hours, dial **1930** immediately for bank lien freezing."
+        ),
+        "topic": "General Cyber Safety Assistance",
+        "risk_verdict": "SAFETY ADVISORY",
+        "emergency_action": "For immediate financial emergencies, dial 1930.",
+        "helpful_links": [
+            {"title": "Report a Suspicious Message", "url": "/citizen/report-message"},
+            {"title": "Scan a Suspicious Link", "url": "/citizen/report-url"},
+            {"title": "Report Fake Loan App / Scheme", "url": "/citizen/report-website"},
+            {"title": "Quick Registry Threat Check", "url": "/citizen/check-threat"}
+        ]
+    }
+

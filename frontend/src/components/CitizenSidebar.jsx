@@ -9,11 +9,16 @@ import {
   Upload,
   FileText,
   LifeBuoy,
-  PhoneCall
+  PhoneCall,
+  Bot,
+  Search,
+  Sparkles
 } from 'lucide-react';
 
 const CITIZEN_NAV = [
   { path: '/citizen', label: 'Citizen Dashboard', icon: LayoutDashboard },
+  { path: '/citizen/assistant', label: 'AI Cyber Saathi', icon: Bot, highlight: true },
+  { path: '/citizen/check-threat', label: 'Check Scam Registry', icon: Search },
   { path: '/citizen/report-message', label: 'Report Message', icon: MessageSquareWarning },
   { path: '/citizen/report-url', label: 'Report Suspicious Link', icon: Link2 },
   { path: '/citizen/report-website', label: 'Report Fake Scheme', icon: Globe },
@@ -63,8 +68,13 @@ export default function CitizenSidebar() {
                 }`
               }
             >
-              <Icon className="w-4 h-4 shrink-0" />
-              <span>{item.label}</span>
+              <Icon className={`w-4 h-4 shrink-0 ${item.highlight ? 'text-cyan-400' : ''}`} />
+              <span className="flex-1">{item.label}</span>
+              {item.highlight && (
+                <span className="text-[9px] font-black bg-cyan-950 text-cyan-300 px-1.5 py-0.5 rounded border border-cyan-700/80 uppercase">
+                  AI Saathi
+                </span>
+              )}
             </NavLink>
           );
         })}
