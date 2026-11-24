@@ -14,7 +14,8 @@ import {
   ArrowRight,
   PhoneCall,
   ExternalLink,
-  Info
+  Info,
+  Sparkles
 } from 'lucide-react';
 
 export default function CitizenDashboard() {
