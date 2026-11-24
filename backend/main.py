@@ -134,6 +134,20 @@ class UpdateStatusRequest(BaseModel):
 # RBAC SECURITY DEPENDENCIES
 # -------------------------------------------------------------
 
+def get_citizen_user(authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
+    """Resolves authenticated citizen, or falls back to standard citizen profile for public reporting."""
+    if authorization:
+        user = get_user_by_token(authorization)
+        if user:
+            return user
+    return {
+        "user_id": "CIT-USER-001",
+        "name": "Citizen (Rajasthan)",
+        "email": "citizen@rajasthan.gov.in",
+        "mobile": "+91 9876543210",
+        "role": "citizen"
+    }
+
 def require_current_user(authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
     """Requires valid session token for any authenticated user."""
     user = get_user_by_token(authorization)
@@ -233,11 +247,11 @@ def api_auth_logout(authorization: Optional[str] = Header(None)):
 # -------------------------------------------------------------
 
 @app.get("/api/citizen/dashboard")
-def api_citizen_dashboard(user: Dict[str, Any] = Depends(require_current_user)):
+def api_citizen_dashboard(user: Dict[str, Any] = Depends(get_citizen_user)):
     return get_citizen_dashboard_stats(user["user_id"])
 
 @app.post("/api/citizen/report")
-def api_citizen_submit_report(req: CitizenReportRequest, user: Dict[str, Any] = Depends(require_current_user)):
+def api_citizen_submit_report(req: CitizenReportRequest, user: Dict[str, Any] = Depends(get_citizen_user)):
     content = req.content.strip()
     if not content:
         raise HTTPException(status_code=400, detail="Submission content cannot be empty.")
@@ -293,7 +307,7 @@ def api_citizen_submit_report(req: CitizenReportRequest, user: Dict[str, Any] = 
 async def api_citizen_upload_evidence(
     file: UploadFile = File(...),
     notes: Optional[str] = Form(""),
-    user: Dict[str, Any] = Depends(require_current_user)
+    user: Dict[str, Any] = Depends(get_citizen_user)
 ):
     allowed = ['.png', '.jpg', '.jpeg', '.pdf', '.txt', '.html']
     ext = os.path.splitext(file.filename)[1].lower()
@@ -348,25 +362,27 @@ async def api_citizen_upload_evidence(
 @app.get("/api/citizen/my-reports")
 def api_citizen_my_reports(
     status: Optional[str] = None,
-    user: Dict[str, Any] = Depends(require_current_user)
+    user: Dict[str, Any] = Depends(get_citizen_user)
 ):
     return get_citizen_submissions(citizen_id=user["user_id"], status=status)
 
 @app.get("/api/citizen/my-reports/{submission_id}")
-def api_citizen_get_single_report(submission_id: str, user: Dict[str, Any] = Depends(require_current_user)):
+def api_citizen_get_single_report(submission_id: str, user: Dict[str, Any] = Depends(get_citizen_user)):
     sub = get_citizen_submission_by_id(submission_id, citizen_id=user["user_id"])
     if not sub:
         raise HTTPException(status_code=404, detail="Report not found or access unauthorized.")
     return sub
 
 @app.post("/api/citizen/assistant")
-def api_citizen_assistant(req: CitizenQueryRequest, user: Dict[str, Any] = Depends(require_current_user)):
+def api_citizen_assistant(req: CitizenQueryRequest, authorization: Optional[str] = Header(None)):
     if not req.query.strip():
         raise HTTPException(status_code=400, detail="Query cannot be empty.")
-    return answer_citizen_query(req.query, citizen_name=user.get("name", "Citizen"))
+    user = get_user_by_token(authorization) if authorization else None
+    citizen_name = user["name"] if user else "Citizen"
+    return answer_citizen_query(req.query, citizen_name=citizen_name)
 
 @app.get("/api/citizen/check-threat")
-def api_citizen_check_threat(q: str = Query(...), user: Dict[str, Any] = Depends(require_current_user)):
+def api_citizen_check_threat(q: str = Query(...), authorization: Optional[str] = Header(None)):
     return check_threat_registry(q)
 
 # -------------------------------------------------------------

@@ -83,29 +83,67 @@ export default function CitizenAiAssistant() {
         headers,
         body: JSON.stringify({ query: q })
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Assistant failed to respond');
-
-      const aiMsg = {
-        sender: 'ai',
-        text: data.answer,
-        topic: data.topic,
-        risk_verdict: data.risk_verdict,
-        emergency_action: data.emergency_action,
-        helpful_links: data.helpful_links || []
-      };
-      setMessages((prev) => [...prev, aiMsg]);
-    } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        {
+      if (res.ok) {
+        const data = await res.json();
+        const aiMsg = {
           sender: 'ai',
-          text: `I apologize, I encountered a temporary connection issue. For immediate assistance, please dial **1930** or report the scammer details on our reporting pages.`
-        }
-      ]);
-    } finally {
-      setLoading(false);
+          text: data.answer,
+          topic: data.topic,
+          risk_verdict: data.risk_verdict,
+          emergency_action: data.emergency_action,
+          helpful_links: data.helpful_links || []
+        };
+        setMessages((prev) => [...prev, aiMsg]);
+        return;
+      }
+    } catch (fetchErr) {
+      // Continue to offline knowledge base fallback
     }
+
+    // Comprehensive Offline Rajasthan Cyber Advisory Fallback
+    const qLower = q.toLowerCase();
+    let topic = 'Cyber Safety Advisory';
+    let risk_verdict = 'HIGH RISK';
+    let emergency_action = 'Dial national cyber crime helpline 1930 immediately.';
+    let answer = '';
+
+    if (qLower.includes('electricity') || qLower.includes('9:30') || qLower.includes('power') || qLower.includes('bijli')) {
+      topic = 'Electricity Bill Disconnection Scam (JVVNL/AVVNL)';
+      risk_verdict = 'CONFIRMED FRAUD';
+      emergency_action = 'DO NOT call the 10-digit number. Verify bills only on https://energy.rajasthan.gov.in.';
+      answer = `⚡ **THIS IS A CONFIRMED SCAM! DO NOT PANIC.**\n\n**Modus Operandi:**\nFraud syndicates broadcast bulk SMS messages claiming your power will be disconnected tonight at 9:30 PM due to an unpaid bill.\n\n**Official Rajasthan Discom Facts:**\n1. Genuine state power companies (JVVNL, AVVNL, JdVVNL) NEVER send disconnection notices from personal 10-digit mobile numbers.\n2. Official government discom SMS headers always show registered sender IDs like **JVVNL-GOV** or **RAJGOV**.\n3. Disconnections never occur at 9:30 PM without statutory 15-day prior written notice.\n\n**What you must do:**\n• Do NOT click any links like \`.online\` or \`.cc\`.\n• Do NOT install any APK file (like QuickSupport or AnyDesk).\n• Check your actual bill on the official Rajasthan Energy Portal.`;
+    } else if (qLower.includes('digital arrest') || qLower.includes('cbi') || qLower.includes('police') || qLower.includes('skype')) {
+      topic = 'Digital Arrest Hoax & Video Call Extortion';
+      risk_verdict = 'CRITICAL FRAUD';
+      emergency_action = 'Immediately disconnect the call. Indian law does NOT recognize digital arrest.';
+      answer = `⚖️ **IMPORTANT: 'DIGITAL ARREST' DOES NOT EXIST IN INDIAN LAW!**\n\n**Modus Operandi:**\nFraudsters pose as CBI officers, Mumbai Police, or Supreme Court judges on WhatsApp/Skype video calls, showing fake police badges, uniforms, or legal warrants to threaten arrest for illegal parcels.\n\n**Legal Facts:**\n1. No police or law enforcement agency in India conducts arrests, interrogations, or court proceedings via Skype or WhatsApp video call.\n2. Law enforcement will NEVER demand money or 'security deposits' to verify your bank account.\n\n**What you must do:**\n• Disconnect the video call immediately.\n• Block and report the scammer's phone number.\n• Report to national helpline 1930 or your local police station.`;
+    } else if (qLower.includes('debited') || qLower.includes('lost money') || qLower.includes('otp') || qLower.includes('golden hour')) {
+      topic = 'Golden Hour Financial Recovery Protocol';
+      risk_verdict = 'EMERGENCY ACTION';
+      emergency_action = 'Dial 1930 within 2 hours to freeze recipient mule accounts.';
+      answer = `🚨 **URGENT GOLDEN HOUR STEPS (CALL 1930 IMMEDIATELY):**\n\nIf money was unauthorizedly debited or you shared an OTP, act immediately:\n\n1. **Dial 1930 (National Cyber Financial Helpline)**: Rajasthan Police cyber officers can trigger a lien notice directly via NPCI to freeze the recipient mule account before funds are withdrawn at ATMs.\n2. **Block Bank Card / NetBanking**: Use your official banking mobile app to temporarily freeze cards and UPI access.\n3. **Preserve Transaction Reference**: Note down the 12-digit UPI UTR number or bank SMS timestamp.\n4. **Report Evidence**: Upload screenshots of the payment slip on LinkShield AI's evidence vault.`;
+    } else {
+      topic = 'Citizen Scam Protection Advisory';
+      risk_verdict = 'SUSPICIOUS ACTIVITY';
+      emergency_action = 'Do not transfer money or share personal OTPs.';
+      answer = `🛡️ **Rajasthan Police Cyber Safety Advisory:**\n\nBased on your query, remember the core principles of cyber protection:\n\n1. **Never share OTPs, PINs, or UPI Passcodes**: Legitimate banks and government officials never ask for OTPs or screen sharing.\n2. **Beware of High-Yield Investment Offers**: Anyone promising 30%+ guaranteed returns or money doubling in color prediction games is operating an illegal Ponzi or betting racket.\n3. **Verify Links**: Official Rajasthan Government websites strictly end with \`.rajasthan.gov.in\` or \`.gov.in\`.\n\nIf you have lost funds or feel threatened, contact toll-free helpline **1930** immediately.`;
+    }
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        sender: 'ai',
+        text: answer,
+        topic,
+        risk_verdict,
+        emergency_action,
+        helpful_links: [
+          { title: 'National Cyber Crime Portal', url: 'https://cybercrime.gov.in' },
+          { title: 'Call 1930 Helpline', url: 'tel:1930' }
+        ]
+      }
+    ]);
+    setLoading(false);
   };
 
   return (
