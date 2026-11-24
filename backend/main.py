@@ -109,7 +109,8 @@ class RegisterRequest(BaseModel):
     password: str
 
 class LoginRequest(BaseModel):
-    email: str
+    email: Optional[str] = None
+    identifier: Optional[str] = None
     password: str
     role: Optional[str] = None
 
@@ -182,12 +183,15 @@ def api_register(req: RegisterRequest):
 
 @app.post("/api/auth/login")
 def api_login(req: LoginRequest):
-    user = authenticate_user(req.email, req.password, role=req.role)
+    login_id = (req.identifier or req.email or "").strip()
+    if not login_id:
+        raise HTTPException(status_code=400, detail="Email, mobile number, or badge ID is required.")
+    user = authenticate_user(login_id, req.password, role=req.role)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials or unauthorized role access.")
 
     token = create_session(user["user_id"], user["role"])
-    log_audit(user["user_id"], user["role"], "LOGIN_SUCCESS", f"Email: {user['email']}")
+    log_audit(user["user_id"], user["role"], "LOGIN_SUCCESS", f"Identifier: {login_id}")
     return {
         "token": token,
         "user": user,

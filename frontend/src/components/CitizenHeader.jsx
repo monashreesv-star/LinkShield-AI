@@ -23,7 +23,9 @@ export default function CitizenHeader() {
     localStorage.removeItem('ls_auth');
     localStorage.removeItem('ls_user');
     localStorage.removeItem('ls_token');
-    navigate('/login');
+    localStorage.removeItem('ls_role');
+    localStorage.removeItem('ls_officer');
+    window.location.href = '/login';
   };
 
   return (

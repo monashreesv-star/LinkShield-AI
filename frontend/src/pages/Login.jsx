@@ -33,9 +33,9 @@ export default function Login() {
 
   // Citizen form state
   const [citizenName, setCitizenName] = useState('');
-  const [citizenEmail, setCitizenEmail] = useState('');
-  const [citizenMobile, setCitizenMobile] = useState('');
-  const [citizenPassword, setCitizenPassword] = useState('');
+  const [citizenEmail, setCitizenEmail] = useState('citizen@rajasthan.gov.in');
+  const [citizenMobile, setCitizenMobile] = useState('9876543210');
+  const [citizenPassword, setCitizenPassword] = useState('Citizen@2026');
   const [citizenConfirmPassword, setCitizenConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
@@ -68,21 +68,21 @@ export default function Login() {
       localStorage.setItem('ls_role', 'citizen');
       localStorage.setItem('ls_user', JSON.stringify(data.user));
 
-      navigate('/citizen');
+      window.location.href = '/citizen';
     } catch (err) {
-      // Fallback for purely offline / static preview mode
+      // Fallback for preview mode
       const fallbackUser = {
-        user_id: 'USR-CITIZEN-001',
-        name: 'Ram Charan Sharma (Citizen Demo)',
+        user_id: 'CIT-USER-001',
+        name: 'Rajesh Sharma',
         email: 'citizen@rajasthan.gov.in',
-        mobile: '9876500001',
+        mobile: '+91 9876543210',
         role: 'citizen'
       };
       localStorage.setItem('ls_auth', 'true');
       localStorage.setItem('ls_token', 'DEMO-CITIZEN-TOKEN-2026');
       localStorage.setItem('ls_role', 'citizen');
       localStorage.setItem('ls_user', JSON.stringify(fallbackUser));
-      navigate('/citizen');
+      window.location.href = '/citizen';
     } finally {
       setLoading(false);
     }
@@ -116,7 +116,7 @@ export default function Login() {
         })
       );
 
-      navigate('/');
+      window.location.href = '/';
     } catch (err) {
       // Fallback for preview
       localStorage.setItem('ls_auth', 'true');
@@ -135,13 +135,13 @@ export default function Login() {
       localStorage.setItem(
         'ls_user',
         JSON.stringify({
-          user_id: 'USR-OFFICER-001',
+          user_id: 'OFF-USER-001',
           name: 'Insp. Devendra Singh',
           role: 'officer',
           badge_id: 'RJ-CYBER-8842'
         })
       );
-      navigate('/');
+      window.location.href = '/';
     } finally {
       setLoading(false);
     }
@@ -157,26 +157,63 @@ export default function Login() {
 
     setLoading(true);
     setErrorMsg('');
+    const inputClean = citizenEmail.trim().toLowerCase();
+    const cleanDigits = inputClean.replace(/\D/g, '');
+    const isDemoCitizen = (inputClean === 'citizen@rajasthan.gov.in' || cleanDigits === '9876543210' || cleanDigits === '9876500001') && citizenPassword.trim() === 'Citizen@2026';
+
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          email: citizenEmail.trim(),
           identifier: citizenEmail.trim(),
           password: citizenPassword.trim(),
           role: 'citizen'
         })
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Invalid email or password.');
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        if (isDemoCitizen) {
+          const fallbackUser = {
+            user_id: 'CIT-USER-001',
+            name: 'Rajesh Sharma',
+            email: 'citizen@rajasthan.gov.in',
+            mobile: '+91 9876543210',
+            role: 'citizen'
+          };
+          localStorage.setItem('ls_auth', 'true');
+          localStorage.setItem('ls_token', 'DEMO-CITIZEN-TOKEN-2026');
+          localStorage.setItem('ls_role', 'citizen');
+          localStorage.setItem('ls_user', JSON.stringify(fallbackUser));
+          window.location.href = '/citizen';
+          return;
+        }
+        throw new Error(data?.detail || 'Invalid email or password.');
+      }
 
       localStorage.setItem('ls_auth', 'true');
       localStorage.setItem('ls_token', data.token);
       localStorage.setItem('ls_role', 'citizen');
       localStorage.setItem('ls_user', JSON.stringify(data.user));
 
-      navigate('/citizen');
+      window.location.href = '/citizen';
     } catch (err) {
+      if (isDemoCitizen) {
+        const fallbackUser = {
+          user_id: 'CIT-USER-001',
+          name: 'Rajesh Sharma',
+          email: 'citizen@rajasthan.gov.in',
+          mobile: '+91 9876543210',
+          role: 'citizen'
+        };
+        localStorage.setItem('ls_auth', 'true');
+        localStorage.setItem('ls_token', 'DEMO-CITIZEN-TOKEN-2026');
+        localStorage.setItem('ls_role', 'citizen');
+        localStorage.setItem('ls_user', JSON.stringify(fallbackUser));
+        window.location.href = '/citizen';
+        return;
+      }
       setErrorMsg(err.message || 'Login failed. Please check credentials.');
     } finally {
       setLoading(false);
@@ -233,8 +270,8 @@ export default function Login() {
 
       setSuccessMsg('Account created successfully! Redirecting...');
       setTimeout(() => {
-        navigate('/citizen');
-      }, 500);
+        window.location.href = '/citizen';
+      }, 400);
     } catch (err) {
       setErrorMsg(err.message || 'Registration failed.');
     } finally {
@@ -275,7 +312,7 @@ export default function Login() {
           loginTime: new Date().toISOString()
         })
       );
-      navigate('/');
+      window.location.href = '/';
     } catch (err) {
       // Fallback
       localStorage.setItem('ls_auth', 'true');
@@ -294,13 +331,13 @@ export default function Login() {
       localStorage.setItem(
         'ls_user',
         JSON.stringify({
-          user_id: 'USR-OFFICER-001',
+          user_id: 'OFF-USER-001',
           name: officerName,
           role: 'officer',
           badge_id: badgeId
         })
       );
-      navigate('/');
+      window.location.href = '/';
     } finally {
       setLoading(false);
     }
@@ -487,9 +524,12 @@ export default function Login() {
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                      Password
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        Password
+                      </label>
+                      <span className="text-[10px] text-cyan-400 font-mono">Demo: Citizen@2026</span>
+                    </div>
                     <div className="relative">
                       <Lock className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-500" />
                       <input

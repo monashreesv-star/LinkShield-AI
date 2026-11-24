@@ -31,9 +31,18 @@ export default function Header() {
   };
 
   const handleLogout = () => {
+    const token = localStorage.getItem('ls_token');
+    fetch('/api/auth/logout', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` }
+    }).catch(() => {});
+
     localStorage.removeItem('ls_auth');
+    localStorage.removeItem('ls_user');
+    localStorage.removeItem('ls_token');
+    localStorage.removeItem('ls_role');
     localStorage.removeItem('ls_officer');
-    navigate('/login');
+    window.location.href = '/login';
   };
 
   return (

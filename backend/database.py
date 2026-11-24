@@ -1,4 +1,5 @@
 import os
+import re
 import sqlite3
 import json
 import hashlib
@@ -16,7 +17,15 @@ def ensure_initialized():
     _db_initialized = True
     try:
         if os.environ.get("VERCEL") and not os.path.exists(DB_PATH):
-            if os.path.exists("linkedshield.db"):
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            source_db = os.path.join(base_dir, "linkedshield.db")
+            if os.path.exists(source_db):
+                try:
+                    import shutil
+                    shutil.copyfile(source_db, DB_PATH)
+                except Exception:
+                    pass
+            elif os.path.exists("linkedshield.db"):
                 try:
                     import shutil
                     shutil.copyfile("linkedshield.db", DB_PATH)
@@ -798,18 +807,23 @@ def register_user(name: str, email: str, mobile: str, password: str, role: str =
         "role": assigned_role
     }
 
-def authenticate_user(email: str, password: str, role: Optional[str] = None) -> Optional[Dict[str, Any]]:
-    """Validates user credentials and role for session issuance."""
+def authenticate_user(identifier: str, password: str, role: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Validates user credentials (email, mobile, or badge) and role for session issuance."""
     from backend.auth import verify_password
-    clean_email = email.strip().lower()
+    clean_id = identifier.strip().lower()
+    clean_digits = re.sub(r'\D', '', clean_id)
 
     conn = get_db_connection()
     cursor = conn.cursor()
 
     cursor.execute("""
     SELECT user_id, name, email, mobile, password_hash, role, badge_id, station
-    FROM users WHERE email = ?;
-    """, (clean_email,))
+    FROM users 
+    WHERE LOWER(email) = ? 
+       OR LOWER(mobile) = ? 
+       OR (LENGTH(?) >= 10 AND mobile LIKE ?)
+       OR (badge_id IS NOT NULL AND LOWER(badge_id) = ?);
+    """, (clean_id, clean_id, clean_digits, f"%{clean_digits[-10:]}%" if len(clean_digits) >= 10 else "NOMATCH", clean_id))
     row = cursor.fetchone()
     conn.close()
 
